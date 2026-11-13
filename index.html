@@ -1,0 +1,3010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>School Daily Schedule Builder & Smart Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@400;500;600;700;800&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --hand-font: 'Patrick Hand', 'Caveat', cursive;
+      --ui-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      font-family: var(--ui-font);
+      background-color: #f1f5f9;
+      color: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .handwritten-mode .entry-font {
+      font-family: var(--hand-font);
+      font-size: 1.08rem;
+      letter-spacing: 0.01em;
+      color: #0f172a;
+    }
+
+    .crisp-mode .entry-font {
+      font-family: var(--ui-font);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    /* Paper Worksheet Styles */
+    .ws-box {
+      border: 1.5px solid #1e293b;
+      background: #ffffff;
+    }
+
+    .ws-header-banner {
+      background: linear-gradient(180deg, #475569 0%, #1e293b 100%);
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      letter-spacing: 0.06em;
+    }
+
+    .ws-time-bar {
+      background-color: #cbd5e1;
+      border-top: 1px solid #334155;
+      border-bottom: 1px solid #475569;
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 1.2;
+      padding: 2px 4px;
+      color: #0f172a;
+    }
+
+    .ws-sub-label {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #475569;
+      line-height: 1;
+      user-select: none;
+    }
+
+    /* Interactive Dropdown Slot Trigger */
+    .dropdown-slot {
+      position: relative;
+      cursor: pointer;
+      transition: all 0.14s ease;
+      user-select: none;
+    }
+    .dropdown-slot:hover {
+      background-color: #eff6ff;
+    }
+    .dropdown-slot:active {
+      background-color: #dbeafe;
+    }
+    .dropdown-slot .caret-hint {
+      opacity: 0.35;
+      font-size: 9px;
+      transition: opacity 0.15s ease;
+    }
+    .dropdown-slot:hover .caret-hint {
+      opacity: 0.9;
+      color: #2563eb;
+    }
+
+    .highlighted-teacher {
+      background-color: #fef08a !important;
+      box-shadow: inset 0 0 0 2px #eab308 !important;
+    }
+
+    .conflict-cell {
+      background-color: #fef2f2 !important;
+      box-shadow: inset 0 0 0 1.5px #ef4444 !important;
+    }
+
+    /* Editable label indicator when Edit Labels mode is active */
+    .edit-labels-active .editable-label {
+      background-color: #fef9c3;
+      border-bottom: 1px dashed #ca8a04;
+      cursor: text;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .day-pill {
+      cursor: pointer;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      transition: all 0.15s ease;
+    }
+    .day-pill.active {
+      border: 2.5px solid #0f172a;
+      background-color: #fde047;
+      font-weight: 800;
+      transform: scale(1.05);
+    }
+
+    .arrow-down-glyph {
+      font-weight: 800;
+      color: #1e293b;
+    }
+
+    /* Smooth Bottom Sheet Animation */
+    @keyframes slideUpSheet {
+      from { transform: translateY(100%); opacity: 0.5; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .sheet-animate {
+      animation: slideUpSheet 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Print Media Query - Always prints the Full 4-Column Paper Sheet */
+    @media print {
+      @page {
+        size: landscape;
+        margin: 4mm;
+      }
+      body {
+        background: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      #phoneViewContainer {
+        display: none !important;
+      }
+      #fullSheetWrapper {
+        display: block !important;
+        overflow: visible !important;
+      }
+      #worksheet-container {
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .caret-hint {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="handwritten-mode min-h-screen pb-24 md:pb-12">
+
+  <!-- ===================================================================== -->
+  <!-- TOP NAVIGATION & SMART TOOLBAR (Responsive for Phone & Desktop)       -->
+  <!-- ===================================================================== -->
+  <header class="no-print sticky top-0 z-40 bg-slate-900 text-white shadow-lg border-b border-slate-700">
+    <div class="max-w-[1600px] mx-auto px-2.5 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+      
+      <!-- Brand + View Mode Switcher -->
+      <div class="flex items-center gap-2">
+        <span class="bg-amber-400 text-slate-950 font-extrabold px-2 py-0.5 rounded text-[11px] uppercase tracking-wider shadow">V4.0</span>
+        <h1 class="text-sm sm:text-base font-bold tracking-tight">Teacher Schedule Builder</h1>
+
+        <!-- Phone View vs Full Sheet Toggle -->
+        <div class="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-xs ml-1">
+          <button id="btnPhoneView" onclick="setLayoutView('phone')" class="px-2.5 py-1 rounded-md font-semibold transition flex items-center gap-1">
+            <span>📱</span><span class="hidden xs:inline">Phone</span>
+          </button>
+          <button id="btnSheetView" onclick="setLayoutView('sheet')" class="px-2.5 py-1 rounded-md font-semibold transition flex items-center gap-1">
+            <span>🖥️</span><span class="hidden xs:inline">Full Sheet</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-wrap items-center gap-1.5 text-xs">
+        <!-- Template / Blank / Sample Loader -->
+        <div class="flex items-center bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+          <button onclick="resetToBlankConfirm()" class="px-2.5 py-1.5 hover:bg-rose-900/70 text-rose-200 font-semibold transition flex items-center gap-1" title="Clear all entries back to a fresh blank sheet">
+            <span>🗑️</span><span>Blank All</span>
+          </button>
+          <div class="w-[1px] h-4 bg-slate-700"></div>
+          <button onclick="loadAug27Sample()" class="px-2.5 py-1.5 hover:bg-slate-700 text-amber-300 font-semibold transition flex items-center gap-1" title="Load the 8/27 Thu photo sample">
+            <span>📋</span><span class="hidden sm:inline">Load 8/27 Sample</span><span class="sm:hidden">Sample</span>
+          </button>
+        </div>
+
+        <!-- Edit Any Label Toggle -->
+        <button id="btnEditLabels" onclick="toggleEditLabelsMode()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 font-semibold transition flex items-center gap-1" title="Tap any time or activity title to rename it">
+          <span>✏️</span><span class="hidden sm:inline">Edit Titles:</span><strong id="editLabelsStatus" class="text-slate-300">OFF</strong>
+        </button>
+
+        <!-- Manage Teachers Roster Button -->
+        <button onclick="openRosterModal()" class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold transition flex items-center gap-1 shadow-sm" title="Add, rename, or remove teachers & preset times">
+          <span>👥</span><span class="hidden sm:inline">Teachers &amp; Presets</span>
+        </button>
+
+        <!-- Seasonal Column Toggle -->
+        <button onclick="toggleSeasonalColumn()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 font-semibold transition flex items-center gap-1" title="Show or hide Seasonal column">
+          <span>☀️ Seasonal:</span><strong id="seasonalStatusText" class="text-emerald-300">ON</strong>
+        </button>
+
+        <!-- True Random Shuffle Auto-Fill -->
+        <button onclick="smartAutoFillEmpty()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 font-bold transition shadow-sm flex items-center gap-1" title="True Random Fisher-Yates Shuffle with 0 Lead Overlaps">
+          <span>🎲 Auto-Fill (Shuffle)</span>
+        </button>
+
+        <!-- Conflict Badge -->
+        <button onclick="toggleConflictModal()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 font-semibold transition flex items-center gap-1.5" title="Live Lead Overlap Inspector">
+          <span id="conflictIcon">✅</span>
+          <strong id="conflictCount" class="text-emerald-300">0 Lead Conflicts</strong>
+        </button>
+
+        <!-- Print Button -->
+        <button onclick="window.print()" class="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition shadow-sm flex items-center gap-1">
+          <span>🖨️</span><span class="hidden sm:inline">Print A4</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Teacher Highlight & Filter Bar -->
+    <div class="bg-slate-800/95 border-t border-slate-700 px-2.5 sm:px-4 py-1.5 overflow-x-auto">
+      <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-2 min-w-max">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">🔍 Tap to Highlight Teacher:</span>
+          <div id="teacherHighlightBar" class="flex items-center gap-1"></div>
+        </div>
+        <div class="flex items-center gap-2 text-[11px] text-slate-300">
+          <button onclick="toggleFontStyle()" class="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 border border-slate-600">
+            Font: <strong id="fontStyleText" class="text-amber-300">Marker</strong>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- 1. PHONE-FRIENDLY VIEW (Thumb-Friendly Cards + Sticky Bottom Tabs)    -->
+  <!-- ===================================================================== -->
+  <section id="phoneViewContainer" class="no-print max-w-2xl mx-auto px-3 pt-3">
+    
+    <!-- Quick Date & Day Banner on Phone -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs font-bold text-slate-500 uppercase mr-1">Date:</span>
+        <input id="mDateMonth" type="text" placeholder="MM" oninput="syncDateField('dateMonth', this.value)" class="entry-font w-11 text-center text-xl font-bold bg-slate-100 rounded-lg py-1 border border-slate-300 focus:outline-none focus:border-blue-600" />
+        <span class="text-xl font-black text-slate-700">/</span>
+        <input id="mDateDay" type="text" placeholder="DD" oninput="syncDateField('dateDay', this.value)" class="entry-font w-11 text-center text-xl font-bold bg-slate-100 rounded-lg py-1 border border-slate-300 focus:outline-none focus:border-blue-600" />
+      </div>
+      <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+        <button onclick="setDayOfWeek('Mon')" id="mday-Mon" class="day-pill">Mon</button>
+        <button onclick="setDayOfWeek('Tue')" id="mday-Tue" class="day-pill">Tue</button>
+        <button onclick="setDayOfWeek('Wed')" id="mday-Wed" class="day-pill">Wed</button>
+        <button onclick="setDayOfWeek('Thu')" id="mday-Thu" class="day-pill">Thu</button>
+        <button onclick="setDayOfWeek('Fri')" id="mday-Fri" class="day-pill">Fri</button>
+      </div>
+      <div class="w-full pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+        <button onclick="smartAutoFillEmpty()" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5">
+          <span>🎲</span><span>Auto-Fill (Random Shuffle)</span>
+        </button>
+        <button onclick="resetToBlankConfirm()" class="py-2 px-3 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs flex items-center gap-1">
+          <span>🗑️</span><span>Blank</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Mobile Tab Content Rendered Here -->
+    <div id="mobileTabContent" class="space-y-3"></div>
+
+    <!-- STICKY BOTTOM TAB NAVIGATION BAR FOR PHONE -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md text-white border-t border-slate-700 shadow-2xl">
+      <div class="max-w-2xl mx-auto grid grid-cols-5 divide-x divide-slate-800 text-[11px] font-bold">
+        <button onclick="setMobileTab('staff')" id="mtab-staff" class="py-2.5 flex flex-col items-center justify-center gap-0.5 transition">
+          <span class="text-base">👥</span>
+          <span>Staff &amp; Info</span>
+        </button>
+        <button onclick="setMobileTab('seasonal')" id="mtab-seasonal" class="py-2.5 flex flex-col items-center justify-center gap-0.5 transition">
+          <span class="text-base">☀️</span>
+          <span>Seasonal</span>
+        </button>
+        <button onclick="setMobileTab('kindy')" id="mtab-kindy" class="py-2.5 flex flex-col items-center justify-center gap-0.5 transition">
+          <span class="text-base">🧸</span>
+          <span>KINDY</span>
+        </button>
+        <button onclick="setMobileTab('elementary')" id="mtab-elementary" class="py-2.5 flex flex-col items-center justify-center gap-0.5 transition">
+          <span class="text-base">🎒</span>
+          <span>Elementary</span>
+        </button>
+        <button onclick="setLayoutView('sheet')" class="py-2.5 flex flex-col items-center justify-center gap-0.5 text-amber-300 hover:bg-slate-800 transition">
+          <span class="text-base">📄</span>
+          <span>Full Sheet</span>
+        </button>
+      </div>
+    </nav>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- 2. FULL 4-COLUMN PAPER WORKSHEET VIEW (Desktop, Tablet & A4 Print)    -->
+  <!-- ===================================================================== -->
+  <main id="fullSheetWrapper" class="max-w-[1600px] mx-auto px-2 sm:px-4 pt-3">
+    <!-- Helper banner on small screens when viewing Full Sheet -->
+    <div class="no-print md:hidden mb-2 bg-blue-950 text-blue-100 px-3 py-2 rounded-xl text-xs flex items-center justify-between">
+      <span>📱 Viewing full A4 paper layout (swipe horizontally or switch back to Phone Cards)</span>
+      <button onclick="setLayoutView('phone')" class="bg-amber-400 text-slate-950 font-bold px-2.5 py-1 rounded-lg ml-2 whitespace-nowrap">Phone View</button>
+    </div>
+
+    <div id="worksheet-container" class="ws-box shadow-2xl p-2 sm:p-3 bg-white overflow-x-auto">
+      <div id="mainGrid" class="min-w-[1180px] grid grid-cols-12 gap-1.5 items-start">
+
+        <!-- ============================================================ -->
+        <!-- LEFT PANEL (4 cols): Date, Staff Shifts, Notices, Bus, Clean -->
+        <!-- ============================================================ -->
+        <div class="col-span-4 flex flex-col gap-1.5">
+
+          <!-- 1. DATE & DAY OF WEEK BOX -->
+          <div class="ws-box bg-slate-100 p-2 flex items-center justify-between gap-2">
+            <div class="flex items-end gap-1 pl-2">
+              <input id="dateMonth" type="text" placeholder="MM" oninput="syncDateField('dateMonth', this.value)" class="entry-font w-10 text-center text-2xl sm:text-3xl font-bold bg-transparent border-b-2 border-slate-800 focus:outline-none focus:border-blue-600" title="Month" />
+              <span class="text-3xl font-extrabold text-slate-800 select-none">/</span>
+              <input id="dateDay" type="text" placeholder="DD" oninput="syncDateField('dateDay', this.value)" class="entry-font w-12 text-center text-2xl sm:text-3xl font-bold bg-transparent border-b-2 border-slate-800 focus:outline-none focus:border-blue-600" title="Day" />
+            </div>
+
+            <div class="flex flex-col items-center text-sm sm:text-base font-extrabold text-slate-900 tracking-tight pr-1 select-none">
+              <div class="flex items-center gap-1">
+                <span onclick="setDayOfWeek('Mon')" id="day-Mon" class="day-pill">Mon</span><span>/</span>
+                <span onclick="setDayOfWeek('Tue')" id="day-Tue" class="day-pill">Tue</span><span>/</span>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span onclick="setDayOfWeek('Wed')" id="day-Wed" class="day-pill">Wed</span><span>/</span>
+                <span onclick="setDayOfWeek('Thu')" id="day-Thu" class="day-pill">Thu</span><span>/</span>
+                <span onclick="setDayOfWeek('Fri')" id="day-Fri" class="day-pill">Fri</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. STAFF ROSTER & SHIFTS (3x3 Grid with Dropdown Pickers on every line) -->
+          <div id="staffGridContainer" class="ws-box grid grid-cols-3 divide-x divide-y divide-slate-700 border-slate-800"></div>
+
+          <!-- 3. NOTICE: IMPORTANT UPDATES / TRIAL / PARENT INTERVIEWS -->
+          <div class="ws-box flex flex-col">
+            <div class="px-2 py-0.5 border-b border-slate-400 bg-slate-50 flex items-center justify-between">
+              <span class="text-[11px] font-bold underline decoration-slate-600 text-slate-900">
+                Notice: Important Updates / Trial / Parent Interviews :
+              </span>
+              <button onclick="openSmartPicker({ type: 'notice', title: 'Notice / Trial / Parent Interviews', currentVal: state.notice, onSave: (v) => { state.notice = v; saveAndRender(); } })" class="no-print text-[10px] text-blue-600 font-semibold hover:underline">▾ Presets</button>
+            </div>
+            <textarea id="noticeBox" rows="3" oninput="state.notice = this.value; saveToLocalStorage(false); syncMobileTextareas();" class="entry-font w-full p-2 bg-transparent focus:outline-none focus:bg-amber-50/40 resize-none leading-snug" placeholder="Tap to type trial kids, parent interviews, or notes..."></textarea>
+          </div>
+
+          <!-- 4. BUS DRIVING & BUS STAFF + KINDY / ELE ALLERGY -->
+          <div class="ws-box grid grid-cols-12 divide-x divide-slate-700">
+            <div class="col-span-8 flex flex-col">
+              <div class="ws-time-bar flex items-center justify-between px-1.5">
+                <span>Bus Driving &amp; Bus Staff</span>
+                <button onclick="openSmartPicker({ type: 'bus', title: 'Bus Driving & Bus Staff', currentVal: state.busNotes, onSave: (v) => { state.busNotes = v; saveAndRender(); } })" class="no-print text-[9px] text-blue-800 font-bold hover:underline">+ Add Staff/Route ▾</button>
+              </div>
+              <textarea id="busBox" rows="3" oninput="state.busNotes = this.value; saveToLocalStorage(false); syncMobileTextareas();" class="entry-font w-full p-1.5 bg-transparent focus:outline-none focus:bg-amber-50/40 resize-none leading-tight" placeholder="Tap to select bus driver/staff or type..."></textarea>
+            </div>
+            <div class="col-span-2 flex flex-col">
+              <div class="ws-time-bar text-center text-[10px]">Kindy Allergy</div>
+              <textarea id="kindyAllergyBox" rows="3" oninput="state.kindyAllergy = this.value; saveToLocalStorage(false); syncMobileTextareas();" class="entry-font w-full p-1 bg-transparent text-center focus:outline-none focus:bg-amber-50/40 resize-none leading-tight" placeholder="None"></textarea>
+            </div>
+            <div class="col-span-2 flex flex-col">
+              <div class="ws-time-bar text-center text-[10px]">Ele. Allergy</div>
+              <textarea id="eleAllergyBox" rows="3" oninput="state.eleAllergy = this.value; saveToLocalStorage(false); syncMobileTextareas();" class="entry-font w-full p-1 bg-transparent text-center focus:outline-none focus:bg-amber-50/40 resize-none leading-tight" placeholder="None"></textarea>
+            </div>
+          </div>
+
+          <!-- 5. CLEANING DUTIES & CLEANING GUIDELINES -->
+          <div class="ws-box grid grid-cols-12 divide-x divide-slate-700">
+            <div class="col-span-5 flex flex-col">
+              <div class="ws-time-bar text-center flex items-center justify-between px-1.5">
+                <span>Cleaning Duties</span>
+                <button onclick="autoRotateCleaning()" class="no-print text-[9px] bg-slate-800 text-amber-300 px-1.5 py-0.2 rounded hover:bg-slate-700" title="Auto-assign cleaning">↻ Auto</button>
+              </div>
+              <div class="text-[9px] text-center bg-slate-100 border-b border-slate-400 font-semibold text-slate-600">Evening</div>
+              <div id="cleaningGrid" class="grid grid-cols-2 divide-x divide-y divide-slate-400 flex-1"></div>
+            </div>
+
+            <div class="col-span-7 flex flex-col">
+              <div class="ws-time-bar text-center">Cleaning Guidelines</div>
+              <div class="grid grid-cols-2 divide-x divide-slate-400 text-[8.5px] leading-[1.18] p-1 text-slate-700 flex-1">
+                <div class="pr-1 space-y-1">
+                  <div class="font-bold underline text-center text-slate-900">Kindy &amp; Ele. Rooms Tasks</div>
+                  <p class="text-center">Put Away Materials<br><span class="text-[7.5px] text-slate-500">(Flashcards, Worksheets, Makers)</span></p>
+                  <p class="text-center">Wipe Tables &amp; Lockers<br><span class="text-[7.5px] text-slate-500">(top/inside lockers)</span></p>
+                  <p class="text-center">Sweep/Wipe/Vacuum Floors<br><span class="text-[7.5px] text-slate-500">(Sweep and Wipe then Vacuum)</span></p>
+                  <p class="text-center">Wipe Whiteboard<br><span class="text-[7.5px] text-slate-500">(Wipe first then use tissues)</span></p>
+                  <p class="text-center">Wipe Mirrors and Windows</p>
+                  <p class="text-center">Empty Trash Bins / Wipe Shelves</p>
+                </div>
+                <div class="pl-1 space-y-1 flex flex-col justify-between">
+                  <div>
+                    <div class="font-bold underline text-center text-slate-900">Lobby Cleaning Points</div>
+                    <p class="text-center">Sweep/Wipe Floors &amp; Empty Trash</p>
+                    <p class="text-center">File/Put away Student Roster/Assignment Sheet</p>
+                    <p class="text-center">Tidy up &amp; clear display items</p>
+                    <p class="text-center">Wipe Counter Table and Fix Chairs</p>
+                  </div>
+                  <div class="pt-1 border-t border-slate-300">
+                    <div class="font-bold underline text-center text-slate-900">Bathroom Area Cleaning</div>
+                    <p class="text-center">Wipe Toilets, Faucets &amp; Sinks<br>Empty Trash Bins &amp; Refill Paper<br>Sweep &amp; Scrub/Mop Floors</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- COLUMN 1: SEASONAL                                           -->
+        <!-- ============================================================ -->
+        <div id="seasonalColumnWrapper" class="col-span-2 ws-box flex flex-col">
+          <div class="ws-header-banner text-center py-1 font-extrabold text-lg tracking-wider border-b-2 border-slate-800">
+            Seasonal
+          </div>
+          <div id="seasonalSlotsContainer" class="flex flex-col divide-y divide-slate-400"></div>
+          <div class="border-t-2 border-slate-800 flex flex-col divide-y divide-slate-600 flex-1">
+            <div class="p-1.5 flex flex-col">
+              <div class="text-[10px] font-bold underline text-center text-slate-800 mb-0.5">Seasonal School Notes:</div>
+              <textarea id="seasonalSchoolNotes" rows="2" oninput="state.seasonalSchoolNotes = this.value; saveToLocalStorage(false); syncMobileTextareas();" class="entry-font w-full bg-transparent text-center focus:outline-none focus:bg-amber-50/40 resize-none leading-tight" placeholder="Tap to add notes..."></textarea>
+            </div>
+            <div class="p-1.5 flex flex-col flex-1">
+              <div class="text-[10px] font-bold underline text-center text-slate-800 mb-0.5">Seasonal HALLO Notes:</div>
+              <textarea id="seasonalHalloNotes" rows="3" oninput="state.seasonalHalloNotes = this.value; saveToLocalStorage(false); syncMobileTextareas();" class="entry-font w-full bg-transparent text-center focus:outline-none focus:bg-amber-50/40 resize-none leading-snug" placeholder="Tap to add HALLO kids/times..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- COLUMN 2: KINDY                                              -->
+        <!-- ============================================================ -->
+        <div id="kindyColumnWrapper" class="col-span-2 ws-box flex flex-col">
+          <div class="ws-header-banner text-center py-1 font-extrabold text-lg tracking-wider border-b-2 border-slate-800">
+            KINDY
+          </div>
+          <div class="bg-slate-200/70 text-[10px] text-slate-500 text-center py-0.5 border-b border-slate-400 font-medium">
+            Afternoon Kindy Schedule (14:30 ~ 18:30)
+          </div>
+          <div id="kindySlotsContainer" class="flex flex-col divide-y divide-slate-400"></div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- COLUMN 3: ELEMENTARY + SIDE CALLOUTS                         -->
+        <!-- ============================================================ -->
+        <div id="elementaryColumnWrapper" class="col-span-4 flex flex-col">
+          <div class="ws-box flex flex-col">
+            <div class="ws-header-banner text-center py-1 font-extrabold text-lg tracking-wider border-b-2 border-slate-800">
+              Elementary
+            </div>
+
+            <div id="eleUpperSlotsContainer" class="flex flex-col divide-y divide-slate-400"></div>
+
+            <!-- Lower Elementary Split: 17:00 Class Separation + Prime/Hallo Side Column -->
+            <div class="grid grid-cols-12 border-t-2 border-slate-800 divide-x divide-slate-700">
+              
+              <!-- Left 9 cols: 17:00 Level Matrix + 18:00 ~ 18:45 -->
+              <div class="col-span-9 flex flex-col">
+                <div class="ws-time-bar text-center">Class 1 Language Development</div>
+                
+                <div class="grid grid-cols-4 divide-x divide-slate-500 border-b border-slate-600 text-[10px]">
+                  <div class="bg-slate-200 p-1 font-bold text-center flex flex-col justify-center">
+                    <span>17:00</span>
+                    <span class="text-[8.5px] font-semibold">Class Separation</span>
+                  </div>
+                  <div class="bg-slate-200 p-1 font-bold text-center flex items-center justify-center">Beginner</div>
+                  <div class="bg-slate-200 p-1 font-bold text-center flex items-center justify-center">Intermediate</div>
+                  <div class="bg-slate-200 p-1 font-bold text-center flex items-center justify-center">Upper Int.</div>
+                </div>
+
+                <div class="grid grid-cols-4 divide-x divide-slate-400 border-b border-slate-500 text-[9px] text-slate-700 bg-slate-50/60">
+                  <div class="p-1 text-center font-semibold space-y-1.5">
+                    <div>17:05</div>
+                    <div>17:20</div>
+                    <div>17:30</div>
+                  </div>
+                  <div class="p-1 text-center space-y-1">
+                    <div>Phonics Chant<br>Phonics Lessons</div>
+                    <div>Vocab &amp; Phrases</div>
+                    <div>Worksheet Time</div>
+                  </div>
+                  <div class="p-1 text-center space-y-1">
+                    <div>Phonics Chant</div>
+                    <div>Vocab &amp; Phrases</div>
+                    <div>Worksheet Time</div>
+                  </div>
+                  <div class="p-1 text-center space-y-1">
+                    <div>Phonics Lessons</div>
+                    <div>Vocab &amp; Phrases</div>
+                    <div>Worksheet Time</div>
+                  </div>
+                </div>
+
+                <div id="eleMatrixTeachersContainer" class="divide-y divide-slate-400"></div>
+                <div id="eleLowerSlotsContainer" class="flex flex-col divide-y divide-slate-400 border-t border-slate-600"></div>
+              </div>
+
+              <!-- Right 3 cols: Prime Class, Hallo Class, Front/Margin Note -->
+              <div class="col-span-3 flex flex-col divide-y divide-slate-700 bg-slate-50">
+                <!-- Prime Class -->
+                <div class="p-1.5 flex flex-col gap-1">
+                  <div class="text-[10px] font-extrabold text-center underline text-slate-900">Prime Class</div>
+                  <div class="text-[8.5px] text-slate-600 font-semibold">Lead Teacher:</div>
+                  <div id="primeLeadCell" class="dropdown-slot border border-slate-400 rounded px-1 py-1 bg-white text-center min-h-[26px] flex items-center justify-between"></div>
+                  <div class="text-[8.5px] text-slate-600 font-semibold mt-0.5">Start Time:</div>
+                  <div id="primeTimeCell" class="dropdown-slot border-b border-slate-500 px-1 py-0.5 bg-white/70 text-center min-h-[24px] flex items-center justify-between"></div>
+                </div>
+
+                <!-- Hallo Class -->
+                <div class="p-1.5 flex flex-col gap-1">
+                  <div class="text-[10px] font-extrabold text-center underline text-slate-900">Hallo Class</div>
+                  <div class="text-[8.5px] text-slate-600 font-semibold">Lead Teacher:</div>
+                  <div id="halloLeadCell" class="dropdown-slot border border-slate-400 rounded px-1 py-1 bg-white text-center min-h-[26px] flex items-center justify-between"></div>
+                  <div class="text-[8.5px] text-slate-600 font-semibold mt-0.5">Start Time:</div>
+                  <div id="halloTime1Cell" class="dropdown-slot border-b border-slate-500 px-1 py-0.5 bg-white/70 text-center min-h-[24px] flex items-center justify-between"></div>
+                  <div class="text-[8.5px] text-slate-600 font-semibold mt-0.5">Start Time 2:</div>
+                  <div id="halloTime2Cell" class="dropdown-slot border-b border-slate-500 px-1 py-0.5 bg-white/70 text-center min-h-[24px] flex items-center justify-between"></div>
+                </div>
+
+                <!-- Margin / Front Note -->
+                <div class="p-1.5 flex flex-col flex-1 bg-amber-50/40">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[9px] font-extrabold text-slate-700 underline">Front / Margin:</span>
+                    <button onclick="openSmartPicker({ type: 'front', title: 'Front Desk / Margin Duty', currentVal: state.marginNote, onSave: (v) => { state.marginNote = v; saveAndRender(); } })" class="no-print text-[9px] text-blue-700 font-bold">▾</button>
+                  </div>
+                  <textarea id="marginNoteBox" rows="4" oninput="state.marginNote = this.value; saveToLocalStorage(false); syncMobileTextareas();" class="entry-font w-full bg-transparent text-center focus:outline-none resize-none leading-tight" placeholder="Tap to add front desk note..."></textarea>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- UNIVERSAL SMART DROPDOWN / BOTTOM-SHEET PICKER MODAL                  -->
+  <!-- ===================================================================== -->
+  <div id="smartPickerOverlay" class="no-print fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4" onclick="closeSmartPicker(event)">
+    <div class="sheet-animate bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[88vh] flex flex-col" onclick="event.stopPropagation()">
+      
+      <!-- Picker Header -->
+      <div class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
+        <div>
+          <div class="text-[10px] uppercase tracking-wider text-amber-400 font-bold" id="pickerSubtitle">Quick Select or Type</div>
+          <h3 class="font-bold text-sm sm:text-base truncate" id="pickerTitle">Select Option</h3>
+        </div>
+        <button onclick="closeSmartPicker()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 font-bold">✕</button>
+      </div>
+
+      <!-- Direct Custom Input Bar at Top of Picker -->
+      <div class="p-3 bg-slate-100 border-b border-slate-200 flex items-center gap-2">
+        <input id="pickerCustomInput" type="text" placeholder="Type anything custom here or tap below..."
+          onkeydown="if(event.key==='Enter'){ applyPickerCustomInput(); }"
+          class="entry-font flex-1 bg-white px-3 py-2 rounded-xl border border-slate-300 text-base focus:outline-none focus:border-blue-600" />
+        <button onclick="applyPickerCustomInput()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-sm whitespace-nowrap">
+          Apply ✓
+        </button>
+      </div>
+
+      <!-- Dynamic Modifier Toggles (Shown for Teacher Slots) -->
+      <div id="pickerTeacherModifiers" class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-1.5">
+          <button type="button" id="pickerBtnMulti" onclick="togglePickerMulti()" class="px-2.5 py-1.5 rounded-lg border font-bold transition flex items-center gap-1">
+            <span>➕ Multi-Select</span>
+          </button>
+          <button type="button" id="pickerBtnBracket" onclick="togglePickerBracket()" class="px-2.5 py-1.5 rounded-lg border font-bold transition flex items-center gap-1">
+            <span>( ) On-Call Brackets</span>
+          </button>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="selectQuickSymbol('↓')" class="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 font-extrabold transition">
+            ↓ Same as Above
+          </button>
+          <button type="button" onclick="selectQuickSymbol('/')" class="px-2.5 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold transition">
+            /
+          </button>
+          <button type="button" onclick="selectQuickSymbol('')" class="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold transition">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrollable Grid of Dropdown Options -->
+      <div id="pickerOptionsContainer" class="p-3 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[50vh]"></div>
+
+      <!-- Footer for Multi-Select Confirmation -->
+      <div id="pickerFooter" class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button onclick="openRosterModal(); closeSmartPicker();" class="text-xs text-indigo-600 font-bold hover:underline">
+          ⚙️ Edit Dropdown List
+        </button>
+        <button onclick="applyPickerCustomInput()" class="px-5 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- TEACHER ROSTER & PRESETS MANAGER MODAL                                -->
+  <!-- ===================================================================== -->
+  <div id="rosterModal" class="no-print fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3" onclick="closeRosterModal(event)">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-bold text-base text-slate-900">👥 Customize Dropdown Lists</h3>
+          <p class="text-xs text-slate-500">Add or edit teachers, shifts, prep times, lunches &amp; activities</p>
+        </div>
+        <button onclick="closeRosterModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 font-bold">✕</button>
+      </div>
+
+      <div class="my-3 overflow-y-auto space-y-4 pr-1 text-xs">
+        <!-- Core Directors List -->
+        <div>
+          <label class="font-bold text-slate-800 block mb-1">Core Directors (Director Shifts &amp; Bus ONLY — Never in Lead/Assist):</label>
+          <input id="presetDirectorsInput" type="text" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm bg-amber-50/40" />
+          <p class="text-[11px] text-slate-400 mt-1">Strictly excluded from Lead &amp; Assist dropdowns and Auto-Fill.</p>
+        </div>
+
+        <!-- Lead & Assist Teachers List -->
+        <div>
+          <label class="font-bold text-slate-800 block mb-1">Lead &amp; Assist Teachers Roster (comma separated):</label>
+          <input id="presetTeachersInput" type="text" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm" />
+          <p class="text-[11px] text-slate-400 mt-1">Only these teachers appear in Lead, Assist, 16:15, 17:00, Prime, Hallo &amp; Cleaning.</p>
+        </div>
+
+        <!-- Shift Times List -->
+        <div>
+          <label class="font-bold text-slate-800 block mb-1">Shift Time Presets (comma separated):</label>
+          <input id="presetShiftsInput" type="text" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm" />
+        </div>
+
+        <!-- Prep Options List -->
+        <div>
+          <label class="font-bold text-slate-800 block mb-1">Prep Presets (comma separated):</label>
+          <input id="presetPrepsInput" type="text" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm" />
+        </div>
+
+        <!-- Lunch Options List -->
+        <div>
+          <label class="font-bold text-slate-800 block mb-1">Lunch Presets (comma separated):</label>
+          <input id="presetLunchesInput" type="text" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm" />
+        </div>
+
+        <!-- Kindy Activities List -->
+        <div>
+          <label class="font-bold text-slate-800 block mb-1">KINDY Activity List (comma separated):</label>
+          <input id="presetKindyActivitiesInput" type="text" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm" />
+        </div>
+
+        <!-- Elementary Activities List -->
+        <div>
+          <label class="font-bold text-slate-800 block mb-1">Elementary Activity List (comma separated):</label>
+          <input id="presetEleActivitiesInput" type="text" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm" />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+        <button onclick="closeRosterModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold text-xs">Cancel</button>
+        <button onclick="saveRosterPresets()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- CONFLICT INSPECTOR MODAL                                              -->
+  <!-- ===================================================================== -->
+  <div id="conflictModal" class="no-print fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4" onclick="toggleConflictModal()">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+          <span>🔍</span> Schedule Conflict Checker
+        </h3>
+        <button onclick="toggleConflictModal()" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
+      </div>
+      <div id="conflictListContainer" class="my-4 max-h-80 overflow-y-auto space-y-2 text-xs"></div>
+      <div class="flex justify-end">
+        <button onclick="toggleConflictModal()" class="px-4 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastBanner" class="no-print fixed bottom-16 md:bottom-4 right-4 z-50 hidden bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-xs font-medium flex items-center gap-2">
+    <span id="toastIcon">✨</span>
+    <span id="toastText">Saved!</span>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. DEFAULT PRESETS & COMPLETELY BLANK INITIAL TEMPLATE (V3.0 STRICT RULES)
+    // =========================================================================
+    const DEFAULT_PRESETS = {
+      directors: ['Kato', 'Coulter'],
+      teachers: ['Koi', 'Thomas', 'Anna', 'Mitchelle'],
+      shifts: ['9 ~ 18:30', '10 ~ 19', '11 - 20', '13 - 20', '16 - 20', '~ 18', '9 - 18', 'Off'],
+      preps: ['while Assist', '11:10 ~ 12', '13:30 - 14', '14 - 14:30', '15 - 15:30', 'None'],
+      lunches: ['11:10 ~ 12:10', '12 - 13', '12:10 - 13:10', '13 - 14', '16 - 17', 'おまかせ'],
+      kindyActivities: ['Indoor', 'Craft', 'Social Science', 'Origami', 'Dance', 'Word Search', 'Math'],
+      eleActivities: ['Indoor', 'Craft', 'Teacher’s Choice', 'Dance', 'Science', 'Social Studies', 'Outdoor', 'Music'],
+      seasonalActivities: ['Indoor', 'Craft', 'Social Science', 'Origami', 'Dance', 'Word Search', 'Math', 'Teacher’s Choice', 'Science', 'Social Studies', 'Outdoor', 'Music'],
+      times: ['15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '/']
+    };
+
+    // Builds a 100% BLANK schedule structure ready to fill via dropdowns
+    function getBlankTemplate() {
+      const base = getAug27SampleTemplate();
+      base.dateMonth = '';
+      base.dateDay = '';
+      base.dayOfWeek = 'Thu';
+      base.notice = '';
+      base.busNotes = '';
+      base.kindyAllergy = '';
+      base.eleAllergy = '';
+      base.seasonalSchoolNotes = '';
+      base.seasonalHalloNotes = '';
+      base.primeLead = '';
+      base.primeTime = '';
+      base.halloLead = '';
+      base.halloTime1 = '';
+      base.halloTime2 = '';
+      base.marginNote = '';
+
+      // Blank out all 9 staff cards
+      base.staffCards.forEach(c => {
+        c.name = '';
+        c.shift = '';
+        c.prep = '';
+        c.extra = '';
+      });
+
+      // Blank out all 8 cleaning slots
+      base.cleaning.forEach(c => { c.teacher = ''; });
+
+      // Blank out Seasonal, Kindy, Elementary slots
+      base.seasonalSlots.forEach(s => {
+        s.lead = '';
+        s.assist = '';
+        if (typeof s.customActivity !== 'undefined') s.customActivity = '';
+      });
+      base.kindySlots.forEach(s => {
+        s.lead = '';
+        s.assist = '';
+        if (s.extra) s.extra = '';
+        if (typeof s.customActivity !== 'undefined') s.customActivity = '';
+      });
+      base.eleUpperSlots.forEach(s => {
+        s.lead = '';
+        s.assist = '';
+        if (s.extra) s.extra = '';
+        if (typeof s.customActivity !== 'undefined') s.customActivity = '';
+        if (s.splitRoom) {
+          s.room1Activity = '';
+          s.room2Activity = '';
+        }
+      });
+      base.eleMatrix = { leadBeg: '', leadInt: '', leadUpp: '', assistBeg: '', assistInt: '', assistUpp: '' };
+      base.eleLowerSlots.forEach(s => {
+        s.lead = '';
+        s.assist = '';
+        s.extra = '';
+      });
+
+      return base;
+    }
+
+    // Complete 8/27 (Thu) Sample Template updated with V3.0 strict rules
+    function getAug27SampleTemplate() {
+      return {
+        dateMonth: '8',
+        dateDay: '27',
+        dayOfWeek: 'Thu',
+        showSeasonal: true,
+        handwrittenMode: true,
+        notice: 'Nakamura Sana (6)\n16 - 17',
+        busNotes: 'Kato   17:55 ~ 19:45\nCoulter -> walk to Rainbow club -> sheers',
+        kindyAllergy: '',
+        eleAllergy: '',
+        seasonalSchoolNotes: '',
+        seasonalHalloNotes: '14 ~ 16\nKentaro, Kyoma\nSoe, Matoi',
+        primeLead: 'Anna',
+        primeTime: '17:00',
+        halloLead: 'Koi',
+        halloTime1: '16:00',
+        halloTime2: '/',
+        marginNote: '-> front Anna\n18 - 19:45',
+        presets: JSON.parse(JSON.stringify(DEFAULT_PRESETS)),
+
+        staffCards: [
+          { id: 's1', role: 'Director', isDirector: true, name: 'Kato', shift: '16 - 20', prepLabel: 'Lunch', prep: '', extraLabel: 'Important', extra: '' },
+          { id: 's2', role: 'Teacher', isDirector: false, name: 'Thomas', shift: '11 - 20', prepLabel: 'Prep', prep: 'while Assist', extraLabel: 'Lunch', extra: '12 - 13' },
+          { id: 's3', role: 'Teacher', isDirector: false, name: 'Koi', shift: '11 - 20', prepLabel: 'Prep', prep: '13:30 - 14', extraLabel: 'Lunch', extra: '12:10 - 13:10' },
+          { id: 's4', role: 'Director 2', isDirector: true, name: 'Coulter', shift: '~ 18', prepLabel: 'Lunch', prep: 'おまかせ', extraLabel: 'Important', extra: '' },
+          { id: 's5', role: 'Teacher', isDirector: false, name: 'Anna', shift: '11 - 20', prepLabel: 'Prep', prep: '11:10 ~ 12', extraLabel: 'Lunch', extra: '12 - 13' },
+          { id: 's6', role: 'Teacher', isDirector: false, name: 'Mitchelle', shift: '9 ~ 18:30', prepLabel: 'Prep', prep: 'while Assist', extraLabel: 'Lunch', extra: '11:10 ~ 12:10' },
+          { id: 's7', role: 'Teacher', isDirector: false, name: '', shift: '', prepLabel: 'Prep', prep: '', extraLabel: 'Lunch', extra: '' },
+          { id: 's8', role: 'Teacher', isDirector: false, name: '', shift: '', prepLabel: 'Prep', prep: '', extraLabel: 'Lunch', extra: '' },
+          { id: 's9', role: 'Teacher', isDirector: false, name: '', shift: '', prepLabel: 'Prep', prep: '', extraLabel: 'Lunch', extra: '' }
+        ],
+
+        cleaning: [
+          { id: 'c1', area: 'Lobby', teacher: 'Anna' },
+          { id: 'c2', area: 'Corridors', teacher: 'Koi' },
+          { id: 'c3', area: 'Room A&B', teacher: 'Thomas' },
+          { id: 'c4', area: 'Room D', teacher: 'Anna' },
+          { id: 'c5', area: 'Room D / Kindy', teacher: 'Koi' },
+          { id: 'c6', area: 'Room E', teacher: 'Mitchelle' },
+          { id: 'c7', area: 'Bathrooms', teacher: 'Koi' },
+          { id: 'c8', area: 'Whiteboards', teacher: 'Anna' }
+        ],
+
+        seasonalSlots: [
+          { id: 'sea_0930', time: '9:30', title: 'Fun With The Teacher', lead: 'Mitchelle', assist: 'Anna' },
+          { id: 'sea_1000', time: '10:00', title: 'Warm Up (Name/Age/Weather/Days/Songs)', lead: '↓', assist: '↓' },
+          { id: 'sea_1015', time: '10:15', title: 'Phonics', lead: '↓', assist: '↓' },
+          { id: 'sea_1045', time: '10:45', title: 'Bathroom', lead: '↓', assist: '↓' },
+          { id: 'sea_1055', time: '10:55', title: 'Social Development & Vocab', lead: '↓', assist: '↓' },
+          { id: 'sea_1110', time: '11:10', title: 'Main Activity:', customActivity: 'Craft', lead: 'Koi', assist: 'Thomas' },
+          { id: 'sea_1200', time: '12:00', title: 'Bathroom', lead: '↓', assist: '↓' },
+          { id: 'sea_1210', time: '12:10', title: 'Lunch', lead: 'Mitchelle', assist: 'Thomas' },
+          { id: 'sea_1245', time: '12:45', title: 'Bathroom', lead: '↓', assist: '↓' },
+          { id: 'sea_1250', time: '12:50', title: 'Phonics Diary', lead: '↓', assist: 'Anna, Thomas' },
+          { id: 'sea_1320', time: '13:20', title: 'Parents Presentation', lead: 'Koi', assist: 'Anna' },
+          { id: 'sea_1330', time: '13:30', title: 'Fun With The Teacher (Kids that stay over)', lead: 'Mitchelle', assist: 'Anna' }
+        ],
+
+        kindySlots: [
+          { id: 'kin_1430', time: '14:30', title: 'Fun with the Teacher (Bathroom)', lead: 'Mitchelle', assist: 'Koi' },
+          { id: 'kin_1445', time: '14:45', title: 'Show & Tell', lead: '↓', assist: '↓' },
+          { id: 'kin_1500', time: '15:00', title: 'Bathroom & Book Time', lead: '↓', assist: '↓' },
+          { id: 'kin_1515', time: '15:15', title: 'Snack Time', lead: '↓', assist: '↓' },
+          { id: 'kin_1530', time: '15:30', title: 'Circle Time & Social Development', lead: 'Thomas', assist: 'Koi' },
+          { id: 'kin_1600', time: '16:00', title: 'Vocab Time', lead: '↓', assist: '↓' },
+          { id: 'kin_1615', time: '16:15', title: 'Activity 1:', customActivity: 'Indoor', lead: 'Mitchelle', assist: '↓' },
+          { id: 'kin_1635', time: '16:35', title: 'PHONICS PROGRAM & Worksheet', lead: '↓', assist: '↓' },
+          { id: 'kin_1650', time: '16:50', title: 'CLASS PRESENTATION (2 min/kid)', lead: '↓', assist: '↓' },
+          { id: 'kin_1700', time: '17:00', title: 'Parents Presentation', threeCol: true, colLabels: ['Lead', 'Interpret', '17:00 Bath & HMK'], lead: 'Mitchelle', assist: 'Koi', extra: 'Anna' },
+          { id: 'kin_1710', time: '17:10', title: 'Vocab Review Time', lead: 'Anna', assist: 'Koi' },
+          { id: 'kin_1725', time: '17:25', title: 'Spelling Bee', lead: '↓', assist: '↓' },
+          { id: 'kin_1740', time: '17:40', title: 'Bathroom & Story Time', lead: '↓', assist: '↓' },
+          { id: 'kin_1750', time: '17:50', title: 'Activity 2:', customActivity: 'Origami', lead: 'Mitchelle', assist: 'Koi' },
+          { id: 'kin_1810', time: '18:10', title: 'CLASS PRESENTATION (1 min/kid)', lead: '↓', assist: '↓' },
+          { id: 'kin_1820', time: '18:20', title: 'PARENTS PRESENTATION (1 min/kid)', subLabels: ['Lead', 'Interpret'], lead: 'Mitchelle', assist: 'Koi' }
+        ],
+
+        eleUpperSlots: [
+          { id: 'ele_1350', time: '13:50', title: '(Early Kids) Fun with the Teacher / Homework Time', threeCol: true, colLabels: ['Lead', 'Assist', 'Prep'], lead: 'Mitchelle', assist: 'Anna', extra: 'Thomas' },
+          { id: 'ele_1430', time: '14:30', title: 'Vocab Video Time', lead: 'Anna', assist: 'Thomas' },
+          { id: 'ele_1445', time: '14:45', title: 'Fun with the Teacher / Homework', lead: '↓', assist: '↓' },
+          { id: 'ele_1500', time: '15:00', title: 'Vocab Time (Be a Teacher and Worksheet/Assessment)', lead: 'Thomas', assist: 'Anna' },
+          { id: 'ele_1515', time: '15:15', title: 'Fun with the Teacher / Homework', lead: '↓', assist: '↓' },
+          { id: 'ele_1530', time: '15:30', title: 'Snack Time (Bathroom too)', threeCol: true, colLabels: ['Lead', 'Assist', 'Prep'], lead: 'Anna', assist: 'Mitchelle', extra: '/' },
+          { id: 'ele_1555', time: '15:55', title: 'Social Development', lead: '↓', assist: '↓' },
+          {
+            id: 'ele_1615',
+            time: '16:15',
+            splitRoom: true,
+            room1Title: 'Class 1 Activity : Room AB',
+            room1Activity: 'Indoor',
+            room2Title: '16:15 Class 2 Activity : Room C',
+            room2Activity: 'Dance',
+            lead: 'Thomas',
+            assist: 'Anna'
+          },
+          { id: 'ele_1640', time: '16:40', title: 'Clean Up Time', subLabels: ['Room AB', 'Room C'], lead: '↓', assist: '↓' },
+          { id: 'ele_1645', time: '16:45', title: '2nd Snack / Group activity', customActivity: 'Music', lead: '↓', assist: '↓' }
+        ],
+
+        eleMatrix: {
+          leadBeg: 'Thomas',
+          leadInt: 'Mitchelle',
+          leadUpp: 'Koi',
+          assistBeg: 'Anna',
+          assistInt: '',
+          assistUpp: ''
+        },
+
+        eleLowerSlots: [
+          { id: 'ele_1800', time: '18:00', title: 'Presentation', threeCol: true, colLabels: ['Lead', 'Assist', 'Class / Homework'], lead: 'Thomas', assist: 'Koi', extra: 'Anna' },
+          { id: 'ele_1830', time: '18:30', title: 'Class 2 Reading Tree / Homework (Worksheet & Phonics Books)', threeCol: true, colLabels: ['Lead', 'Assist', 'Cleaning'], lead: '↓', assist: '↓', extra: '↓' },
+          { id: 'ele_1845', time: '18:45', title: 'Fun with the Teacher / Homework', threeCol: true, colLabels: ['Lead', 'Assist', 'Cleaning'], lead: '↓', assist: '↓', extra: '↓' }
+        ]
+      };
+    }
+
+    // =========================================================================
+    // 2. STATE & VIEW CONFIGURATION
+    // =========================================================================
+    let state = getBlankTemplate(); // Starts 100% BLANK by default!
+    let layoutView = window.innerWidth < 900 ? 'phone' : 'sheet';
+    let mobileTab = 'staff'; // 'staff' | 'seasonal' | 'kindy' | 'elementary'
+    let editLabelsMode = false;
+    let highlightedTeacher = null;
+
+    // Smart Picker Modal State
+    let currentPickerConfig = null;
+    let pickerMultiMode = false;
+    let pickerBracketMode = false;
+
+    function initApp() {
+      try {
+        const saved = localStorage.getItem('dreamTeamScheduleState_v3');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state = { ...getBlankTemplate(), ...parsed };
+          if (!state.presets) {
+            state.presets = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
+          } else {
+            state.presets.directors = state.presets.directors || [...DEFAULT_PRESETS.directors];
+            state.presets.teachers = state.presets.teachers || [...DEFAULT_PRESETS.teachers];
+            state.presets.kindyActivities = state.presets.kindyActivities || [...DEFAULT_PRESETS.kindyActivities];
+            state.presets.eleActivities = state.presets.eleActivities || [...DEFAULT_PRESETS.eleActivities];
+          }
+          // Guarantee 14:30 Elementary is Vocab Video Time
+          const ele1430 = (state.eleUpperSlots || []).find(s => s.id === 'ele_1430' || s.time === '14:30');
+          if (ele1430) ele1430.title = 'Vocab Video Time';
+        }
+      } catch (e) {
+        console.warn('Could not load saved v3 schedule:', e);
+      }
+      renderAll();
+    }
+
+    function saveAndRender() {
+      saveToLocalStorage(false);
+      renderAll();
+    }
+
+    // =========================================================================
+    // 3. VIEW MODE & MOBILE TAB NAVIGATION
+    // =========================================================================
+    function setLayoutView(mode) {
+      layoutView = mode;
+      renderAll();
+    }
+
+    function setMobileTab(tab) {
+      mobileTab = tab;
+      renderMobileView();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function toggleEditLabelsMode() {
+      editLabelsMode = !editLabelsMode;
+      document.body.classList.toggle('edit-labels-active', editLabelsMode);
+      const statusEl = document.getElementById('editLabelsStatus');
+      const btn = document.getElementById('btnEditLabels');
+      statusEl.textContent = editLabelsMode ? 'ON' : 'OFF';
+      statusEl.className = editLabelsMode ? 'text-amber-300 font-extrabold' : 'text-slate-300';
+      btn.classList.toggle('ring-2', editLabelsMode);
+      btn.classList.toggle('ring-amber-400', editLabelsMode);
+      showToast(editLabelsMode ? '✏️ Tap any Time, Role, or Activity Title to rename it!' : '✏️ Title editing locked');
+      renderAll();
+    }
+
+    // =========================================================================
+    // 4. MASTER RENDERING ENGINE
+    // =========================================================================
+    function renderAll() {
+      // View Switcher UI
+      const isPhone = layoutView === 'phone';
+      document.getElementById('phoneViewContainer').classList.toggle('hidden', !isPhone);
+      document.getElementById('fullSheetWrapper').classList.toggle('hidden', isPhone);
+
+      const btnPhone = document.getElementById('btnPhoneView');
+      const btnSheet = document.getElementById('btnSheetView');
+      btnPhone.className = `px-2.5 py-1 rounded-md font-semibold transition flex items-center gap-1 ${isPhone ? 'bg-amber-400 text-slate-950 shadow' : 'text-slate-300 hover:text-white'}`;
+      btnSheet.className = `px-2.5 py-1 rounded-md font-semibold transition flex items-center gap-1 ${!isPhone ? 'bg-amber-400 text-slate-950 shadow' : 'text-slate-300 hover:text-white'}`;
+
+      // Sync Date & Day across both views
+      ['dateMonth', 'mDateMonth'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && document.activeElement !== el) el.value = state.dateMonth || '';
+      });
+      ['dateDay', 'mDateDay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && document.activeElement !== el) el.value = state.dateDay || '';
+      });
+      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach(d => {
+        const el1 = document.getElementById('day-' + d);
+        const el2 = document.getElementById('mday-' + d);
+        if (el1) el1.classList.toggle('active', state.dayOfWeek === d);
+        if (el2) el2.classList.toggle('active', state.dayOfWeek === d);
+      });
+
+      // Sync Textareas
+      const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (el && document.activeElement !== el) el.value = v || '';
+      };
+      setVal('noticeBox', state.notice);
+      setVal('busBox', state.busNotes);
+      setVal('kindyAllergyBox', state.kindyAllergy);
+      setVal('eleAllergyBox', state.eleAllergy);
+      setVal('seasonalSchoolNotes', state.seasonalSchoolNotes);
+      setVal('seasonalHalloNotes', state.seasonalHalloNotes);
+      setVal('marginNoteBox', state.marginNote);
+
+      // Apply Font & Seasonal Visibility
+      document.body.classList.toggle('handwritten-mode', !!state.handwrittenMode);
+      document.body.classList.toggle('crisp-mode', !state.handwrittenMode);
+      document.getElementById('fontStyleText').textContent = state.handwrittenMode ? 'Marker' : 'Digital';
+
+      const seasonalCol = document.getElementById('seasonalColumnWrapper');
+      const kindyCol = document.getElementById('kindyColumnWrapper');
+      const eleCol = document.getElementById('elementaryColumnWrapper');
+      const seaTxt = document.getElementById('seasonalStatusText');
+      if (state.showSeasonal) {
+        seasonalCol.classList.remove('hidden');
+        kindyCol.className = 'col-span-2 ws-box flex flex-col';
+        eleCol.className = 'col-span-4 flex flex-col';
+        seaTxt.textContent = 'ON';
+        seaTxt.className = 'text-emerald-300';
+      } else {
+        seasonalCol.classList.add('hidden');
+        kindyCol.className = 'col-span-3 ws-box flex flex-col';
+        eleCol.className = 'col-span-5 flex flex-col';
+        seaTxt.textContent = 'OFF';
+        seaTxt.className = 'text-slate-400';
+      }
+
+      // Render Teacher Highlight Bar
+      renderTeacherHighlightBar();
+
+      // Render Full Worksheet Sections
+      renderStaffCards();
+      renderCleaningGrid();
+      renderSeasonalSlots();
+      renderKindySlots();
+      renderEleUpperSlots();
+      renderEleMatrixAndLower();
+      renderSideCalloutCells();
+
+      // Render Phone View Cards
+      renderMobileView();
+
+      // Run Conflict Checker
+      runConflictAndWorkloadCheck();
+    }
+
+    // Strictly returns Core Directors only (Kato, Coulter)
+    function getDirectorRoster() {
+      const fromPresets = (state.presets && state.presets.directors && state.presets.directors.length)
+        ? state.presets.directors
+        : DEFAULT_PRESETS.directors;
+      return Array.from(new Set(fromPresets));
+    }
+
+    // Strictly returns Lead & Assist Teachers ONLY (Koi, Thomas, Anna, Mitchelle) — NEVER Kato or Coulter
+    function getLeadAssistRoster() {
+      const directorsLower = getDirectorRoster().map(d => d.toLowerCase());
+      const fromPresets = (state.presets && state.presets.teachers && state.presets.teachers.length)
+        ? state.presets.teachers
+        : DEFAULT_PRESETS.teachers;
+      return Array.from(new Set(fromPresets)).filter(
+        name => !directorsLower.includes(name.trim().toLowerCase())
+      );
+    }
+
+    // Returns combined list for top highlight bar
+    function getFullTeacherRoster() {
+      return getLeadAssistRoster();
+    }
+
+    function renderTeacherHighlightBar() {
+      const container = document.getElementById('teacherHighlightBar');
+      const counts = countTeacherAssignments();
+      const teachers = getLeadAssistRoster();
+
+      container.innerHTML = teachers.map(name => {
+        const isHl = highlightedTeacher && highlightedTeacher.toLowerCase() === name.toLowerCase();
+        const c = counts[name.toLowerCase()] || 0;
+        return `
+          <button onclick="toggleHighlightTeacher('${escapeHtml(name)}')"
+            class="px-2 py-0.5 rounded-md text-xs font-bold transition flex items-center gap-1 border ${isHl ? 'bg-yellow-300 text-slate-950 border-yellow-500 shadow' : 'bg-slate-700 hover:bg-slate-600 text-slate-100 border-slate-600'}">
+            <span>${escapeHtml(name)}</span>
+            <span class="px-1 rounded text-[10px] ${isHl ? 'bg-slate-900 text-yellow-300' : 'bg-slate-800 text-slate-300'}">${c}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 5. FULL SHEET RENDERERS (EVERY CELL HAS A SMART DROPDOWN TRIGGER)
+    // =========================================================================
+    function renderDropdownTriggerHTML({ value, placeholder, onClickJs, extraClass = '', isHighlighted = false, domId = '' }) {
+      const displayVal = value && String(value).trim() !== '' ? escapeHtml(value) : `<span class="text-slate-300 font-normal text-[11px] select-none">${escapeHtml(placeholder || 'Select')}</span>`;
+      const isArrow = value === '↓';
+      return `
+        <div ${domId ? `id="${domId}"` : ''}
+             onclick="${onClickJs}"
+             class="dropdown-slot px-1.5 py-0.5 flex items-center justify-between gap-1 min-h-[25px] ${isHighlighted ? 'highlighted-teacher' : ''} ${extraClass}">
+          <span class="entry-font w-full text-center truncate ${isArrow ? 'arrow-down-glyph text-base' : ''}">${displayVal}</span>
+          <span class="caret-hint no-print">▾</span>
+        </div>
+      `;
+    }
+
+    function renderStaffCards() {
+      const container = document.getElementById('staffGridContainer');
+      container.innerHTML = state.staffCards.map((card, idx) => {
+        const hl = isCellHighlighted(card.name);
+        return `
+          <div class="p-1.5 flex flex-col justify-between text-[10px] ${hl ? 'bg-yellow-50' : 'bg-white'}">
+            <!-- Role + Teacher Name Dropdown -->
+            <div class="flex items-center justify-between gap-1 border-b border-slate-400 pb-0.5">
+              <span onclick="maybeEditStaffLabel(${idx}, 'role', '${escapeHtml(card.role)}')"
+                    class="editable-label font-bold text-slate-700 whitespace-nowrap">${escapeHtml(card.role)}:</span>
+              <div class="flex-1">
+                ${renderDropdownTriggerHTML({
+                  value: card.name,
+                  placeholder: 'Teacher',
+                  isHighlighted: hl,
+                  onClickJs: `openStaffFieldPicker(${idx}, 'name', 'Teacher Name')`
+                })}
+              </div>
+            </div>
+
+            <!-- Shift Dropdown -->
+            <div class="flex items-center justify-between gap-1 mt-0.5 border-b border-slate-300 pb-0.5">
+              <span class="text-[9px] font-semibold text-slate-600 whitespace-nowrap">Shift:</span>
+              <div class="flex-1">
+                ${renderDropdownTriggerHTML({
+                  value: card.shift,
+                  placeholder: 'Shift',
+                  onClickJs: `openStaffFieldPicker(${idx}, 'shift', 'Shift Time')`
+                })}
+              </div>
+            </div>
+
+            <!-- Prep / Lunch Row 1 Dropdown -->
+            <div class="flex items-center justify-between gap-1 mt-0.5 border-b border-slate-300 pb-0.5">
+              <span onclick="maybeEditStaffLabel(${idx}, 'prepLabel', '${escapeHtml(card.prepLabel)}')"
+                    class="editable-label text-[9px] font-semibold text-slate-600 whitespace-nowrap">${escapeHtml(card.prepLabel)}:</span>
+              <div class="flex-1">
+                ${renderDropdownTriggerHTML({
+                  value: card.prep,
+                  placeholder: card.prepLabel,
+                  onClickJs: `openStaffFieldPicker(${idx}, 'prep', '${escapeHtml(card.prepLabel)}')`
+                })}
+              </div>
+            </div>
+
+            <!-- Lunch / Important Row 2 Dropdown -->
+            <div class="flex items-center justify-between gap-1 mt-0.5">
+              <span onclick="maybeEditStaffLabel(${idx}, 'extraLabel', '${escapeHtml(card.extraLabel)}')"
+                    class="editable-label text-[9px] font-semibold text-slate-600 whitespace-nowrap">${escapeHtml(card.extraLabel)}:</span>
+              <div class="flex-1">
+                ${renderDropdownTriggerHTML({
+                  value: card.extra,
+                  placeholder: card.extraLabel,
+                  onClickJs: `openStaffFieldPicker(${idx}, 'extra', '${escapeHtml(card.extraLabel)}')`
+                })}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderCleaningGrid() {
+      const container = document.getElementById('cleaningGrid');
+      container.innerHTML = state.cleaning.map((item, idx) => {
+        const hl = isCellHighlighted(item.teacher);
+        return `
+          <div class="p-1 flex flex-col justify-between">
+            <span onclick="maybeEditCleaningArea(${idx})"
+                  class="editable-label text-[8.5px] font-bold underline text-slate-700 leading-none">${escapeHtml(item.area)}</span>
+            <div class="mt-0.5">
+              ${renderDropdownTriggerHTML({
+                value: item.teacher,
+                placeholder: 'Assign',
+                isHighlighted: hl,
+                onClickJs: `openCleaningPicker(${idx})`
+              })}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function buildSlotBlockHTML(sectionName, slot, idx) {
+      const hasCustomAct = typeof slot.customActivity !== 'undefined';
+      const isThreeCol = !!slot.threeCol;
+      const labels = slot.colLabels || slot.subLabels || ['Lead', 'Assist'];
+
+      // Special 16:15 Split Room Row
+      if (slot.splitRoom) {
+        return `
+          <div class="flex flex-col">
+            <div class="grid grid-cols-2 divide-x divide-slate-600 ws-time-bar p-0">
+              <div class="px-1 py-0.5 flex items-center justify-between gap-1">
+                <span onclick="maybeEditSlotTitle('${sectionName}', ${idx})" class="editable-label text-[9.5px]">${escapeHtml(slot.time)} ${escapeHtml(slot.room1Title)}</span>
+                <div onclick="openActivityPicker('${sectionName}', ${idx}, 'room1Activity', 'Room AB Activity')"
+                     class="dropdown-slot bg-white/95 px-1.5 py-0 rounded border border-slate-500 min-w-[68px] flex items-center justify-between">
+                  <span class="entry-font text-xs text-center flex-1">${escapeHtml(slot.room1Activity || '') || '<span class="text-slate-300 text-[10px]">Activity</span>'}</span>
+                  <span class="caret-hint no-print">▾</span>
+                </div>
+              </div>
+              <div class="px-1 py-0.5 flex items-center justify-between gap-1">
+                <span class="text-[9.5px]">${escapeHtml(slot.room2Title)}</span>
+                <div onclick="openActivityPicker('${sectionName}', ${idx}, 'room2Activity', 'Room C Activity')"
+                     class="dropdown-slot bg-white/95 px-1.5 py-0 rounded border border-slate-500 min-w-[68px] flex items-center justify-between">
+                  <span class="entry-font text-xs text-center flex-1">${escapeHtml(slot.room2Activity || '') || '<span class="text-slate-300 text-[10px]">Activity</span>'}</span>
+                  <span class="caret-hint no-print">▾</span>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 divide-x divide-slate-400">
+              ${buildSlotTeacherCellHTML(sectionName, idx, 'lead', slot.lead, 'Lead (Room AB)', slot.id + '_lead')}
+              ${buildSlotTeacherCellHTML(sectionName, idx, 'assist', slot.assist, 'Lead (Room C)', slot.id + '_assist')}
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="flex flex-col">
+          <div class="ws-time-bar flex items-center justify-between gap-1">
+            <div onclick="maybeEditSlotTitle('${sectionName}', ${idx})" class="editable-label flex items-center gap-1 flex-wrap cursor-pointer" title="Click to edit time or activity title">
+              <span>${escapeHtml(slot.time)}</span>
+              <span>${escapeHtml(slot.title)}</span>
+            </div>
+            ${hasCustomAct ? `
+              <div onclick="openActivityPicker('${sectionName}', ${idx}, 'customActivity', '${escapeHtml(slot.time)} ${escapeHtml(slot.title)}')"
+                   class="dropdown-slot bg-white/95 px-1.5 py-0 rounded border border-slate-500 min-w-[88px] flex items-center justify-between">
+                <span class="entry-font text-xs text-center flex-1">${escapeHtml(slot.customActivity || '') || '<span class="text-slate-300 text-[10px]">Activity</span>'}</span>
+                <span class="caret-hint no-print">▾</span>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="grid ${isThreeCol ? 'grid-cols-3' : 'grid-cols-2'} divide-x divide-slate-400">
+            ${buildSlotTeacherCellHTML(sectionName, idx, 'lead', slot.lead, labels[0], slot.id + '_lead')}
+            ${buildSlotTeacherCellHTML(sectionName, idx, 'assist', slot.assist, labels[1], slot.id + '_assist')}
+            ${isThreeCol ? buildSlotTeacherCellHTML(sectionName, idx, 'extra', slot.extra || '', labels[2], slot.id + '_extra') : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function buildSlotTeacherCellHTML(sectionName, idx, field, val, subLabel, domId) {
+      const hl = isCellHighlighted(val);
+      return `
+        <div id="cell_${domId}" class="px-1 pt-0.5 pb-0.5 flex flex-col justify-between ${hl ? 'highlighted-teacher' : ''}">
+          <div class="flex items-center justify-between px-0.5">
+            <span class="ws-sub-label">${escapeHtml(subLabel)}</span>
+            ${idx > 0 ? `<button type="button" onclick="quickSetDownArrow(event, '${sectionName}', ${idx}, '${field}')" class="no-print text-[9px] text-slate-400 hover:text-blue-600 font-bold" title="Same as above (↓)">↓</button>` : ''}
+          </div>
+          ${renderDropdownTriggerHTML({
+            value: val,
+            placeholder: subLabel,
+            isHighlighted: false,
+            onClickJs: `openSlotTeacherPicker('${sectionName}', ${idx}, '${field}', '${escapeHtml(subLabel)}')`
+          })}
+        </div>
+      `;
+    }
+
+    function renderSeasonalSlots() {
+      document.getElementById('seasonalSlotsContainer').innerHTML = state.seasonalSlots
+        .map((slot, idx) => buildSlotBlockHTML('seasonalSlots', slot, idx)).join('');
+    }
+
+    function renderKindySlots() {
+      document.getElementById('kindySlotsContainer').innerHTML = state.kindySlots
+        .map((slot, idx) => buildSlotBlockHTML('kindySlots', slot, idx)).join('');
+    }
+
+    function renderEleUpperSlots() {
+      document.getElementById('eleUpperSlotsContainer').innerHTML = state.eleUpperSlots
+        .map((slot, idx) => buildSlotBlockHTML('eleUpperSlots', slot, idx)).join('');
+    }
+
+    function renderEleMatrixAndLower() {
+      const m = state.eleMatrix;
+      const leadRow = [
+        { key: 'leadBeg', label: 'Beginner Teacher', val: m.leadBeg },
+        { key: 'leadInt', label: 'Intermediate Teacher', val: m.leadInt },
+        { key: 'leadUpp', label: 'Upper Int. Teacher', val: m.leadUpp }
+      ];
+      const assistRow = [
+        { key: 'assistBeg', label: 'Beginner Assist', val: m.assistBeg },
+        { key: 'assistInt', label: 'Intermediate Assist', val: m.assistInt },
+        { key: 'assistUpp', label: 'Upper Int. Assist', val: m.assistUpp }
+      ];
+
+      document.getElementById('eleMatrixTeachersContainer').innerHTML = `
+        <div class="grid grid-cols-4 divide-x divide-slate-400">
+          <div class="p-1 text-[9.5px] font-bold text-center bg-slate-100 flex items-center justify-center">Teacher(s):</div>
+          ${leadRow.map(c => `
+            <div class="p-0.5 ${isCellHighlighted(c.val) ? 'highlighted-teacher' : ''}">
+              ${renderDropdownTriggerHTML({
+                value: c.val,
+                placeholder: 'Lead',
+                onClickJs: `openMatrixPicker('${c.key}', '17:00 ${c.label}')`
+              })}
+            </div>
+          `).join('')}
+        </div>
+        <div class="grid grid-cols-4 divide-x divide-slate-400">
+          <div class="p-1 text-[9.5px] font-bold text-center bg-slate-100 flex items-center justify-center">Assist:</div>
+          ${assistRow.map(c => `
+            <div class="p-0.5 ${isCellHighlighted(c.val) ? 'highlighted-teacher' : ''}">
+              ${renderDropdownTriggerHTML({
+                value: c.val,
+                placeholder: 'Assist',
+                onClickJs: `openMatrixPicker('${c.key}', '17:00 ${c.label}')`
+              })}
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      document.getElementById('eleLowerSlotsContainer').innerHTML = state.eleLowerSlots
+        .map((slot, idx) => buildSlotBlockHTML('eleLowerSlots', slot, idx)).join('');
+    }
+
+    function renderSideCalloutCells() {
+      const bindCallout = (domId, field, label, type) => {
+        const el = document.getElementById(domId);
+        if (!el) return;
+        const val = state[field];
+        el.className = `dropdown-slot border border-slate-400 rounded px-1.5 py-0.5 bg-white text-center min-h-[26px] flex items-center justify-between ${isCellHighlighted(val) ? 'highlighted-teacher' : ''}`;
+        el.onclick = () => openSmartPicker({
+          type,
+          title: label,
+          currentVal: val,
+          onSave: (v) => { state[field] = v; saveAndRender(); }
+        });
+        el.innerHTML = `
+          <span class="entry-font w-full text-center truncate">${val ? escapeHtml(val) : '<span class="text-slate-300 text-[10px]">Select</span>'}</span>
+          <span class="caret-hint no-print">▾</span>
+        `;
+      };
+
+      bindCallout('primeLeadCell', 'primeLead', 'Prime Class — Lead Teacher', 'teacher');
+      bindCallout('primeTimeCell', 'primeTime', 'Prime Class — Start Time', 'time');
+      bindCallout('halloLeadCell', 'halloLead', 'Hallo Class — Lead Teacher (Koi Only)', 'hallo_teacher');
+      bindCallout('halloTime1Cell', 'halloTime1', 'Hallo Class — Start Time 1', 'time');
+      bindCallout('halloTime2Cell', 'halloTime2', 'Hallo Class — Start Time 2', 'time');
+    }
+
+    // =========================================================================
+    // 6. PHONE-FRIENDLY VIEW RENDERER (LARGE TOUCH TARGETS & CLEAN CARDS)
+    // =========================================================================
+    function renderMobileView() {
+      // Highlight active bottom tab
+      ['staff', 'seasonal', 'kindy', 'elementary'].forEach(t => {
+        const btn = document.getElementById('mtab-' + t);
+        if (btn) {
+          btn.className = `py-2.5 flex flex-col items-center justify-center gap-0.5 transition ${mobileTab === t ? 'bg-slate-800 text-amber-400 border-t-2 border-amber-400' : 'text-slate-400 hover:text-white'}`;
+        }
+      });
+
+      const container = document.getElementById('mobileTabContent');
+      if (!container) return;
+
+      if (mobileTab === 'staff') {
+        container.innerHTML = buildMobileStaffTabHTML();
+      } else if (mobileTab === 'seasonal') {
+        container.innerHTML = buildMobileTimetableTabHTML('☀️ Seasonal Schedule (9:30 ~ 13:30)', 'seasonalSlots', state.seasonalSlots, true);
+      } else if (mobileTab === 'kindy') {
+        container.innerHTML = buildMobileTimetableTabHTML('🧸 KINDY Schedule (14:30 ~ 18:20)', 'kindySlots', state.kindySlots, false);
+      } else if (mobileTab === 'elementary') {
+        container.innerHTML = buildMobileElementaryTabHTML();
+      }
+    }
+
+    function buildMobileStaffTabHTML() {
+      return `
+        <!-- Staff Shifts Section -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between">
+            <h2 class="font-bold text-sm">👥 Staff Shifts, Prep &amp; Lunch</h2>
+            <button onclick="openRosterModal()" class="text-xs bg-indigo-600 px-2.5 py-1 rounded-lg font-semibold">+ Edit Roster</button>
+          </div>
+          <div class="divide-y divide-slate-200">
+            ${state.staffCards.map((card, idx) => `
+              <div class="p-3 flex flex-col gap-2 ${isCellHighlighted(card.name) ? 'bg-yellow-50' : ''}">
+                <div class="grid grid-cols-2 gap-2">
+                  <!-- Teacher Name -->
+                  <div onclick="openStaffFieldPicker(${idx}, 'name', '${escapeHtml(card.role)} Name')"
+                       class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex items-center justify-between">
+                    <div>
+                      <div class="text-[10px] font-bold uppercase text-slate-400">${escapeHtml(card.role)}</div>
+                      <div class="entry-font font-bold text-base text-slate-900">${escapeHtml(card.name) || '<span class="text-slate-400 text-xs font-normal">Tap to pick teacher</span>'}</div>
+                    </div>
+                    <span class="text-slate-400 text-xs">▾</span>
+                  </div>
+                  <!-- Shift -->
+                  <div onclick="openStaffFieldPicker(${idx}, 'shift', 'Shift Time')"
+                       class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex items-center justify-between">
+                    <div>
+                      <div class="text-[10px] font-bold uppercase text-slate-400">Shift</div>
+                      <div class="entry-font font-bold text-base text-slate-900">${escapeHtml(card.shift) || '<span class="text-slate-400 text-xs font-normal">Select shift</span>'}</div>
+                    </div>
+                    <span class="text-slate-400 text-xs">▾</span>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <!-- Prep -->
+                  <div onclick="openStaffFieldPicker(${idx}, 'prep', '${escapeHtml(card.prepLabel)}')"
+                       class="dropdown-slot bg-slate-50/70 border border-slate-200 rounded-xl px-3 py-1.5 flex items-center justify-between">
+                    <div>
+                      <div class="text-[10px] font-semibold text-slate-400">${escapeHtml(card.prepLabel)}</div>
+                      <div class="entry-font text-sm">${escapeHtml(card.prep) || '<span class="text-slate-300 text-xs">—</span>'}</div>
+                    </div>
+                    <span class="text-slate-400 text-xs">▾</span>
+                  </div>
+                  <!-- Extra / Lunch -->
+                  <div onclick="openStaffFieldPicker(${idx}, 'extra', '${escapeHtml(card.extraLabel)}')"
+                       class="dropdown-slot bg-slate-50/70 border border-slate-200 rounded-xl px-3 py-1.5 flex items-center justify-between">
+                    <div>
+                      <div class="text-[10px] font-semibold text-slate-400">${escapeHtml(card.extraLabel)}</div>
+                      <div class="entry-font text-sm">${escapeHtml(card.extra) || '<span class="text-slate-300 text-xs">—</span>'}</div>
+                    </div>
+                    <span class="text-slate-400 text-xs">▾</span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Cleaning Duties Card on Phone -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between">
+            <h2 class="font-bold text-sm">🧹 Evening Cleaning Duties</h2>
+            <button onclick="autoRotateCleaning()" class="text-xs bg-teal-600 px-2.5 py-1 rounded-lg font-semibold">↻ Auto-Assign</button>
+          </div>
+          <div class="p-3 grid grid-cols-2 gap-2">
+            ${state.cleaning.map((item, idx) => `
+              <div onclick="openCleaningPicker(${idx})"
+                   class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex items-center justify-between ${isCellHighlighted(item.teacher) ? 'highlighted-teacher' : ''}">
+                <div>
+                  <div class="text-[10px] font-bold uppercase text-slate-500">${escapeHtml(item.area)}</div>
+                  <div class="entry-font font-bold text-base">${escapeHtml(item.teacher) || '<span class="text-slate-400 text-xs font-normal">Select</span>'}</div>
+                </div>
+                <span class="text-slate-400 text-xs">▾</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Notices, Bus & Allergies Card on Phone -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 space-y-3">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-bold text-slate-700">📌 Notice / Trial / Parent Interviews:</label>
+              <button onclick="openSmartPicker({ type: 'notice', title: 'Notice / Trial', currentVal: state.notice, onSave: (v) => { state.notice = v; saveAndRender(); } })" class="text-xs text-blue-600 font-bold">▾ Quick Add</button>
+            </div>
+            <textarea oninput="state.notice = this.value; saveToLocalStorage(false);" rows="2" class="entry-font w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300" placeholder="Tap to type trial kids or parent interviews...">${escapeHtml(state.notice)}</textarea>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-bold text-slate-700">🚌 Bus Driving &amp; Bus Staff:</label>
+              <button onclick="openSmartPicker({ type: 'bus', title: 'Bus Staff', currentVal: state.busNotes, onSave: (v) => { state.busNotes = v; saveAndRender(); } })" class="text-xs text-blue-600 font-bold">▾ Pick Teacher</button>
+            </div>
+            <textarea oninput="state.busNotes = this.value; saveToLocalStorage(false);" rows="2" class="entry-font w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300" placeholder="Tap to enter bus schedule...">${escapeHtml(state.busNotes)}</textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs font-bold text-slate-700 block mb-1">🥜 Kindy Allergy:</label>
+              <input type="text" value="${escapeHtml(state.kindyAllergy)}" oninput="state.kindyAllergy = this.value; saveToLocalStorage(false);" class="entry-font w-full p-2 rounded-xl bg-slate-50 border border-slate-300" placeholder="None" />
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-700 block mb-1">🥜 Ele. Allergy:</label>
+              <input type="text" value="${escapeHtml(state.eleAllergy)}" oninput="state.eleAllergy = this.value; saveToLocalStorage(false);" class="entry-font w-full p-2 rounded-xl bg-slate-50 border border-slate-300" placeholder="None" />
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function buildMobileTimetableTabHTML(headerTitle, sectionName, slots, isSeasonal) {
+      return `
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-800 text-white px-4 py-3 flex items-center justify-between">
+            <h2 class="font-bold text-sm">${headerTitle}</h2>
+            ${isSeasonal ? `
+              <button onclick="toggleSeasonalColumn()" class="text-xs px-2.5 py-1 rounded-lg font-bold ${state.showSeasonal ? 'bg-emerald-500 text-slate-950' : 'bg-slate-700 text-slate-300'}">
+                ${state.showSeasonal ? 'Shown on Print ✓' : 'Hidden on Print'}
+              </button>
+            ` : ''}
+          </div>
+          <div class="divide-y divide-slate-200">
+            ${slots.map((slot, idx) => buildMobileSlotCardHTML(sectionName, slot, idx)).join('')}
+          </div>
+        </div>
+        ${isSeasonal ? `
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 space-y-3">
+            <div>
+              <label class="text-xs font-bold text-slate-700 block mb-1">📝 Seasonal School Notes:</label>
+              <textarea oninput="state.seasonalSchoolNotes = this.value; saveToLocalStorage(false);" rows="2" class="entry-font w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300" placeholder="Notes...">${escapeHtml(state.seasonalSchoolNotes)}</textarea>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-700 block mb-1">📝 Seasonal HALLO Notes:</label>
+              <textarea oninput="state.seasonalHalloNotes = this.value; saveToLocalStorage(false);" rows="3" class="entry-font w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300" placeholder="14~16 Kids...">${escapeHtml(state.seasonalHalloNotes)}</textarea>
+            </div>
+          </div>
+        ` : ''}
+      `;
+    }
+
+    function buildMobileSlotCardHTML(sectionName, slot, idx) {
+      const hasCustomAct = typeof slot.customActivity !== 'undefined';
+      const isThreeCol = !!slot.threeCol;
+      const labels = slot.colLabels || slot.subLabels || ['Lead', 'Assist'];
+
+      if (slot.splitRoom) {
+        return `
+          <div class="p-3 space-y-2 bg-indigo-50/30">
+            <div class="text-xs font-extrabold text-slate-800">${escapeHtml(slot.time)} Split Room Activities</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div onclick="openActivityPicker('${sectionName}', ${idx}, 'room1Activity', 'Room AB Activity')" class="dropdown-slot bg-white border border-slate-300 rounded-xl p-2 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] font-bold text-slate-400">Room AB Activity</div>
+                  <div class="entry-font font-bold">${escapeHtml(slot.room1Activity) || '<span class="text-slate-400 text-xs">Pick Activity</span>'}</div>
+                </div>
+                <span>▾</span>
+              </div>
+              <div onclick="openActivityPicker('${sectionName}', ${idx}, 'room2Activity', 'Room C Activity')" class="dropdown-slot bg-white border border-slate-300 rounded-xl p-2 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] font-bold text-slate-400">Room C Activity</div>
+                  <div class="entry-font font-bold">${escapeHtml(slot.room2Activity) || '<span class="text-slate-400 text-xs">Pick Activity</span>'}</div>
+                </div>
+                <span>▾</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              ${buildMobileTeacherButtonHTML(sectionName, idx, 'lead', slot.lead, 'Room AB Lead')}
+              ${buildMobileTeacherButtonHTML(sectionName, idx, 'assist', slot.assist, 'Room C Lead')}
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div onclick="maybeEditSlotTitle('${sectionName}', ${idx})" class="text-xs font-extrabold text-slate-800">
+              <span class="bg-slate-200 px-1.5 py-0.5 rounded text-slate-900 mr-1">${escapeHtml(slot.time)}</span>
+              <span>${escapeHtml(slot.title)}</span>
+            </div>
+            ${hasCustomAct ? `
+              <button onclick="openActivityPicker('${sectionName}', ${idx}, 'customActivity', '${escapeHtml(slot.title)}')"
+                class="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-xs font-bold text-amber-900 flex items-center gap-1">
+                <span>🎯 ${escapeHtml(slot.customActivity) || 'Pick Activity'}</span><span>▾</span>
+              </button>
+            ` : ''}
+          </div>
+          <div class="grid ${isThreeCol ? 'grid-cols-3' : 'grid-cols-2'} gap-2">
+            ${buildMobileTeacherButtonHTML(sectionName, idx, 'lead', slot.lead, labels[0])}
+            ${buildMobileTeacherButtonHTML(sectionName, idx, 'assist', slot.assist, labels[1])}
+            ${isThreeCol ? buildMobileTeacherButtonHTML(sectionName, idx, 'extra', slot.extra || '', labels[2]) : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function buildMobileTeacherButtonHTML(sectionName, idx, field, val, label) {
+      const hl = isCellHighlighted(val);
+      return `
+        <div onclick="openSlotTeacherPicker('${sectionName}', ${idx}, '${field}', '${escapeHtml(label)}')"
+             class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex items-center justify-between ${hl ? 'highlighted-teacher' : ''}">
+          <div class="min-w-0">
+            <div class="text-[10px] font-bold uppercase text-slate-400">${escapeHtml(label)}</div>
+            <div class="entry-font font-bold text-base truncate">${val ? escapeHtml(val) : '<span class="text-slate-400 text-xs font-normal">Select</span>'}</div>
+          </div>
+          <span class="text-slate-400 text-xs ml-1">▾</span>
+        </div>
+      `;
+    }
+
+    function buildMobileElementaryTabHTML() {
+      const m = state.eleMatrix;
+      return `
+        ${buildMobileTimetableTabHTML('🎒 Elementary (13:50 ~ 16:45)', 'eleUpperSlots', state.eleUpperSlots, false)}
+
+        <!-- 17:00 Class Separation Matrix on Phone -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-800 text-white px-4 py-2.5 font-bold text-sm">
+            📊 17:00 Class Separation (3 Levels)
+          </div>
+          <div class="p-3 space-y-2">
+            ${[
+              { title: 'Beginner', leadKey: 'leadBeg', assistKey: 'assistBeg' },
+              { title: 'Intermediate', leadKey: 'leadInt', assistKey: 'assistInt' },
+              { title: 'Upper Int.', leadKey: 'leadUpp', assistKey: 'assistUpp' }
+            ].map(lvl => `
+              <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div class="text-xs font-extrabold text-slate-700">${lvl.title}</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div onclick="openMatrixPicker('${lvl.leadKey}', '17:00 ${lvl.title} Lead')" class="dropdown-slot bg-white border border-slate-300 rounded-xl px-3 py-1.5 flex items-center justify-between">
+                    <div>
+                      <div class="text-[10px] text-slate-400 font-bold">Teacher</div>
+                      <div class="entry-font font-bold">${escapeHtml(m[lvl.leadKey]) || '<span class="text-slate-300 text-xs">Select</span>'}</div>
+                    </div>
+                    <span>▾</span>
+                  </div>
+                  <div onclick="openMatrixPicker('${lvl.assistKey}', '17:00 ${lvl.title} Assist')" class="dropdown-slot bg-white border border-slate-300 rounded-xl px-3 py-1.5 flex items-center justify-between">
+                    <div>
+                      <div class="text-[10px] text-slate-400 font-bold">Assist</div>
+                      <div class="entry-font font-bold">${escapeHtml(m[lvl.assistKey]) || '<span class="text-slate-300 text-xs">Select</span>'}</div>
+                    </div>
+                    <span>▾</span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        ${buildMobileTimetableTabHTML('🎒 Evening Elementary (18:00 ~ 18:45)', 'eleLowerSlots', state.eleLowerSlots, false)}
+
+        <!-- Prime, Hallo & Front Desk Card on Phone -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="bg-slate-800 text-white px-4 py-2.5 font-bold text-sm">
+            ⭐ Prime Class, Hallo Class &amp; Front Desk
+          </div>
+          <div class="p-3 space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+              <div onclick="openSmartPicker({ type: 'teacher', title: 'Prime Class Teacher', currentVal: state.primeLead, onSave: (v)=>{state.primeLead=v;saveAndRender();} })" class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl p-2.5 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] font-bold text-slate-400">Prime Lead</div>
+                  <div class="entry-font font-bold">${escapeHtml(state.primeLead) || '<span class="text-slate-400 text-xs">Select</span>'}</div>
+                </div>
+                <span>▾</span>
+              </div>
+              <div onclick="openSmartPicker({ type: 'time', title: 'Prime Start Time', currentVal: state.primeTime, onSave: (v)=>{state.primeTime=v;saveAndRender();} })" class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl p-2.5 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] font-bold text-slate-400">Prime Start Time</div>
+                  <div class="entry-font font-bold">${escapeHtml(state.primeTime) || '<span class="text-slate-400 text-xs">Select</span>'}</div>
+                </div>
+                <span>▾</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div onclick="openSmartPicker({ type: 'hallo_teacher', title: 'Hallo Class Lead (Koi Only)', currentVal: state.halloLead, onSave: (v)=>{state.halloLead=v;saveAndRender();} })" class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl p-2.5 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] font-bold text-slate-400">Hallo Lead (Koi Only)</div>
+                  <div class="entry-font font-bold">${escapeHtml(state.halloLead) || '<span class="text-slate-400 text-xs">Koi</span>'}</div>
+                </div>
+                <span>▾</span>
+              </div>
+              <div onclick="openSmartPicker({ type: 'time', title: 'Hallo Time 1', currentVal: state.halloTime1, onSave: (v)=>{state.halloTime1=v;saveAndRender();} })" class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl p-2.5 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] font-bold text-slate-400">Start Time 1</div>
+                  <div class="entry-font font-bold">${escapeHtml(state.halloTime1) || '<span class="text-slate-400 text-xs">Select</span>'}</div>
+                </div>
+                <span>▾</span>
+              </div>
+              <div onclick="openSmartPicker({ type: 'time', title: 'Hallo Time 2', currentVal: state.halloTime2, onSave: (v)=>{state.halloTime2=v;saveAndRender();} })" class="dropdown-slot bg-slate-50 border border-slate-300 rounded-xl p-2.5 flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] font-bold text-slate-400">Start Time 2</div>
+                  <div class="entry-font font-bold">${escapeHtml(state.halloTime2) || '<span class="text-slate-400 text-xs">Select</span>'}</div>
+                </div>
+                <span>▾</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-bold text-slate-700 block mb-1">Front Desk / Right Margin Note:</label>
+              <textarea oninput="state.marginNote = this.value; saveToLocalStorage(false);" rows="2" class="entry-font w-full p-2.5 rounded-xl bg-amber-50/50 border border-slate-300" placeholder="e.g. -> front Hien 18 - 19:45">${escapeHtml(state.marginNote)}</textarea>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 7. UNIVERSAL SMART DROPDOWN / POPOVER PICKER LOGIC
+    // =========================================================================
+    function isDirectorStaffCard(card) {
+      if (!card) return false;
+      if (card.isDirector) return true;
+      return String(card.role || '').toLowerCase().includes('director');
+    }
+
+    function openStaffFieldPicker(idx, field, label) {
+      const card = state.staffCards[idx];
+      let type = 'teacher';
+      if (field === 'name') {
+        type = isDirectorStaffCard(card) ? 'director' : 'teacher';
+      } else if (field === 'shift') {
+        type = 'shift';
+      } else if (field === 'prep') {
+        type = card.prepLabel.toLowerCase().includes('lunch') ? 'lunch' : 'prep';
+      } else if (field === 'extra') {
+        type = card.extraLabel.toLowerCase().includes('lunch') ? 'lunch' : 'prep';
+      }
+
+      openSmartPicker({
+        type,
+        title: `${card.role} — ${label}`,
+        currentVal: card[field],
+        onSave: (val) => {
+          state.staffCards[idx][field] = val;
+          saveAndRender();
+        }
+      });
+    }
+
+    function openCleaningPicker(idx) {
+      const item = state.cleaning[idx];
+      openSmartPicker({
+        type: 'teacher',
+        title: `Cleaning Duty — ${item.area}`,
+        currentVal: item.teacher,
+        onSave: (val) => {
+          state.cleaning[idx].teacher = val;
+          saveAndRender();
+        }
+      });
+    }
+
+    // =========================================================================
+    // 7B. PRECISE TIME-WINDOW LEAD OVERLAP ENGINE (MANUAL + AUTO-FILL)
+    // =========================================================================
+    const KINDY_TIME_WINDOWS = {
+      'kin_1430': [870, 885],   // 14:30 - 14:45
+      'kin_1445': [885, 900],   // 14:45 - 15:00
+      'kin_1500': [900, 915],   // 15:00 - 15:15
+      'kin_1515': [915, 930],   // 15:15 - 15:30
+      'kin_1530': [930, 960],   // 15:30 - 16:00
+      'kin_1600': [960, 975],   // 16:00 - 16:15
+      'kin_1615': [975, 995],   // 16:15 - 16:35
+      'kin_1635': [995, 1010],  // 16:35 - 16:50
+      'kin_1650': [1010, 1020], // 16:50 - 17:00
+      'kin_1700': [1020, 1030], // 17:00 - 17:10
+      'kin_1710': [1030, 1045], // 17:10 - 17:25
+      'kin_1725': [1045, 1060], // 17:25 - 17:40
+      'kin_1740': [1060, 1070], // 17:40 - 17:50
+      'kin_1750': [1070, 1090], // 17:50 - 18:10
+      'kin_1810': [1090, 1100], // 18:10 - 18:20
+      'kin_1820': [1100, 1115]  // 18:20 - 18:35
+    };
+
+    const ELE_UPPER_TIME_WINDOWS = {
+      'ele_1350': [830, 870],   // 13:50 - 14:30
+      'ele_1430': [870, 885],   // 14:30 - 14:45
+      'ele_1445': [885, 900],   // 14:45 - 15:00
+      'ele_1500': [900, 910],   // 15:00 - 15:10
+      'ele_1515': [910, 930],   // 15:10/15:15 - 15:30
+      'ele_1530': [930, 955],   // 15:30 - 15:55
+      'ele_1555': [955, 975],   // 15:55 - 16:15
+      'ele_1615': [975, 1000],  // 16:15 - 16:40 (Room AB & Room C)
+      'ele_1640': [1000, 1005], // 16:40 - 16:45 (Room AB & Room C Wrap-up)
+      'ele_1645': [1005, 1020]  // 16:45 - 17:00
+    };
+
+    const ELE_LOWER_TIME_WINDOWS = {
+      'ele_1800': [1080, 1085], // 18:00 - 18:05
+      'ele_1830': [1085, 1095], // 18:05/18:30 Class 2 Reading
+      'ele_1845': [1095, 1125]  // 18:15/18:45 Homework & Fun
+    };
+
+    function parseTimeToMins(tStr) {
+      if (!tStr) return null;
+      const m = String(tStr).match(/(\d{1,2}):(\d{2})/);
+      if (!m) return null;
+      return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    }
+
+    function getSlotTimeRange(sectionName, slot) {
+      if (sectionName === 'kindySlots' && KINDY_TIME_WINDOWS[slot.id]) return KINDY_TIME_WINDOWS[slot.id];
+      if (sectionName === 'eleUpperSlots' && ELE_UPPER_TIME_WINDOWS[slot.id]) return ELE_UPPER_TIME_WINDOWS[slot.id];
+      if (sectionName === 'eleLowerSlots' && ELE_LOWER_TIME_WINDOWS[slot.id]) return ELE_LOWER_TIME_WINDOWS[slot.id];
+      const start = parseTimeToMins(slot.time);
+      return start !== null ? [start, start + 15] : [0, 0];
+    }
+
+    function rangesOverlap(r1, r2) {
+      return r1[0] < r2[1] && r2[0] < r1[1];
+    }
+
+    // Determines if a specific cell is a Lead role (vs Assist/Prep/Cleaning)
+    function isLeadRoleField(sectionName, idx, field) {
+      if (sectionName === 'seasonalSlots') return false; // Seasonal runs 9:30-13:30 before Kindy/Ele
+      if (field === 'lead') return true;
+      // 16:15 Split Room AND 16:40 Room AB / Room C wrap-up have two simultaneous room Leads ('lead' = Room AB, 'assist' = Room C)
+      if (sectionName === 'eleUpperSlots') {
+        const slot = state.eleUpperSlots[idx];
+        if (slot && (slot.splitRoom || slot.id === 'ele_1615' || slot.id === 'ele_1640') && field === 'assist') {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Collects every active Lead assignment across Kindy, Elementary, 16:15 Split Rooms, and 17:00 Separation
+    function getAllActiveLeadEntries(customState) {
+      const st = customState || state;
+      const entries = [];
+
+      // 1. Kindy Lead Slots (resolving ↓ continuation arrows)
+      let lastKindyLead = '';
+      st.kindySlots.forEach((slot, idx) => {
+        const raw = slot.lead || '';
+        const resolved = (raw === '↓') ? lastKindyLead : raw;
+        if (raw && raw !== '↓') lastKindyLead = raw;
+        const range = getSlotTimeRange('kindySlots', slot);
+        entries.push({
+          uid: `kindySlots:${idx}:lead`,
+          sectionName: 'kindySlots',
+          idx,
+          field: 'lead',
+          domId: `cell_${slot.id}_lead`,
+          label: `KINDY ${slot.time}`,
+          detail: `${slot.time} ${slot.title}`,
+          range,
+          rawVal: raw,
+          resolvedVal: resolved
+        });
+      });
+
+      // 2. Elementary Upper Lead Slots (including 16:15 & 16:40 Room AB + Room C simultaneous Leads)
+      let lastEleLead = '';
+      let lastEleRoomCLead = '';
+      st.eleUpperSlots.forEach((slot, idx) => {
+        const range = getSlotTimeRange('eleUpperSlots', slot);
+        const isDualRoom = !!(slot.splitRoom || slot.id === 'ele_1615' || slot.id === 'ele_1640');
+
+        const rawLead = slot.lead || '';
+        const resolvedLead = (rawLead === '↓') ? lastEleLead : rawLead;
+        if (rawLead && rawLead !== '↓') lastEleLead = rawLead;
+
+        entries.push({
+          uid: `eleUpperSlots:${idx}:lead`,
+          sectionName: 'eleUpperSlots',
+          idx,
+          field: 'lead',
+          domId: `cell_${slot.id}_lead`,
+          label: isDualRoom ? `Ele ${slot.time} (Room AB)` : `Ele ${slot.time}`,
+          detail: isDualRoom ? `${slot.time} Room AB` : `${slot.time} ${slot.title}`,
+          range,
+          rawVal: rawLead,
+          resolvedVal: resolvedLead
+        });
+
+        if (isDualRoom) {
+          const rawC = slot.assist || '';
+          const resolvedC = (rawC === '↓') ? lastEleRoomCLead : rawC;
+          if (rawC && rawC !== '↓') lastEleRoomCLead = rawC;
+          entries.push({
+            uid: `eleUpperSlots:${idx}:assist`,
+            sectionName: 'eleUpperSlots',
+            idx,
+            field: 'assist',
+            domId: `cell_${slot.id}_assist`,
+            label: `Ele ${slot.time} (Room C)`,
+            detail: `${slot.time} Room C`,
+            range,
+            rawVal: rawC,
+            resolvedVal: resolvedC
+          });
+        } else {
+          if (slot.assist && slot.assist !== '↓') lastEleRoomCLead = slot.assist;
+        }
+      });
+
+      // 3. Elementary 17:00 Class Separation (Beginner, Intermediate, Upper Int. all run 17:00 - 18:00 [1020, 1080])
+      const matrixRange = [1020, 1080];
+      const matrixConfigs = [
+        { key: 'leadBeg', label: 'Ele 17:00 (Beginner)', domId: 'cell_matrix_leadBeg' },
+        { key: 'leadInt', label: 'Ele 17:00 (Intermediate)', domId: 'cell_matrix_leadInt' },
+        { key: 'leadUpp', label: 'Ele 17:00 (Upper Int.)', domId: 'cell_matrix_leadUpp' }
+      ];
+      matrixConfigs.forEach(mc => {
+        const val = (st.eleMatrix && st.eleMatrix[mc.key]) || '';
+        entries.push({
+          uid: `eleMatrix:${mc.key}`,
+          sectionName: 'eleMatrix',
+          matrixKey: mc.key,
+          domId: mc.domId,
+          label: mc.label,
+          detail: mc.label,
+          range: matrixRange,
+          rawVal: val,
+          resolvedVal: val
+        });
+      });
+
+      // 4. Elementary Lower Lead Slots (18:00 ~ 18:45)
+      // For 18:00 ↓ continuation, inherit from 17:00 Beginner Lead if ↓ is used at 18:00
+      let lastLowerLead = (st.eleMatrix && st.eleMatrix.leadBeg) || '';
+      st.eleLowerSlots.forEach((slot, idx) => {
+        const raw = slot.lead || '';
+        const resolved = (raw === '↓') ? lastLowerLead : raw;
+        if (raw && raw !== '↓') lastLowerLead = raw;
+        const range = getSlotTimeRange('eleLowerSlots', slot);
+        entries.push({
+          uid: `eleLowerSlots:${idx}:lead`,
+          sectionName: 'eleLowerSlots',
+          idx,
+          field: 'lead',
+          domId: `cell_${slot.id}_lead`,
+          label: `Ele ${slot.time}`,
+          detail: `${slot.time} ${slot.title}`,
+          range,
+          rawVal: raw,
+          resolvedVal: resolved
+        });
+      });
+
+      return entries;
+    }
+
+    // Returns a map of { teacherNameLower: [conflictLabel1, ...] } for any teacher busy Leading an overlapping slot
+    // Also accounts for downstream `↓` continuation slots if changing this slot cascades downward!
+    function getBusyLeadTeachersForTarget(targetDescriptor) {
+      const roster = getLeadAssistRoster();
+      const allEntries = getAllActiveLeadEntries(state);
+      const affectedUids = new Set([targetDescriptor.uid]);
+      const targetRanges = [];
+
+      const primaryEntry = allEntries.find(e => e.uid === targetDescriptor.uid);
+      if (primaryEntry) {
+        targetRanges.push(primaryEntry.range);
+        // Check if subsequent slots in the same column use '↓' and therefore inherit this Lead teacher!
+        if (targetDescriptor.sectionName === 'kindySlots' || targetDescriptor.sectionName === 'eleUpperSlots' || targetDescriptor.sectionName === 'eleLowerSlots') {
+          const slotsArr = state[targetDescriptor.sectionName];
+          for (let i = targetDescriptor.idx + 1; i < slotsArr.length; i++) {
+            const nextSlot = slotsArr[i];
+            const f = targetDescriptor.field;
+            if (! isLeadRoleField(targetDescriptor.sectionName, i, f)) break;
+            if (nextSlot[f] === '↓') {
+              const downUid = `${targetDescriptor.sectionName}:${i}:${f}`;
+              affectedUids.add(downUid);
+              const downEntry = allEntries.find(e => e.uid === downUid);
+              if (downEntry) targetRanges.push(downEntry.range);
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
+      const busyMap = {};
+      allEntries.forEach(entry => {
+        if (affectedUids.has(entry.uid)) return;
+        const overlapsAny = targetRanges.some(r => rangesOverlap(r, entry.range));
+        if (!overlapsAny) return;
+        const cleaned = String(entry.resolvedVal || '').replace(/\(.*?\)/g, '');
+        const names = extractTeacherNames(cleaned, roster);
+        names.forEach(tName => {
+          const key = tName.toLowerCase();
+          if (!busyMap[key]) busyMap[key] = [];
+          if (!busyMap[key].includes(entry.label)) {
+            busyMap[key].push(entry.label);
+          }
+        });
+      });
+
+      return busyMap;
+    }
+
+    // Resolves who the teacher above is if the user selects '↓' (Same as Above)
+    function getInheritedTeacherAbove(sectionName, idx, field) {
+      const slots = state[sectionName];
+      if (!slots || idx <= 0) return '';
+      for (let i = idx - 1; i >= 0; i--) {
+        const val = slots[i][field];
+        if (val && val !== '↓') return val;
+      }
+      return '';
+    }
+
+    function openSlotTeacherPicker(sectionName, idx, field, subLabel) {
+      const slot = state[sectionName][idx];
+      const isLead = isLeadRoleField(sectionName, idx, field);
+      const targetUid = `${sectionName}:${idx}:${field}`;
+      const busyLeadMap = isLead
+        ? getBusyLeadTeachersForTarget({ uid: targetUid, sectionName, idx, field })
+        : {};
+      const inheritedAbove = idx > 0 ? getInheritedTeacherAbove(sectionName, idx, field) : '';
+
+      openSmartPicker({
+        type: 'teacher',
+        isLeadSlot: isLead,
+        busyLeadMap,
+        inheritedAbove,
+        title: `${slot.time} ${slot.title || 'Activity'} — ${subLabel}`,
+        currentVal: slot[field],
+        onSave: (val) => {
+          state[sectionName][idx][field] = val;
+          saveAndRender();
+        }
+      });
+    }
+
+    function openActivityPicker(sectionName, idx, field, title) {
+      const slot = state[sectionName][idx];
+      let actType = 'seasonal_activity';
+      if (sectionName === 'kindySlots') actType = 'kindy_activity';
+      else if (sectionName === 'eleUpperSlots' || sectionName === 'eleLowerSlots') actType = 'ele_activity';
+
+      openSmartPicker({
+        type: actType,
+        title: `Select Activity — ${title}`,
+        currentVal: slot[field],
+        onSave: (val) => {
+          state[sectionName][idx][field] = val;
+          saveAndRender();
+        }
+      });
+    }
+
+    function openMatrixPicker(key, title) {
+      const isLead = key.startsWith('lead');
+      const targetUid = `eleMatrix:${key}`;
+      const busyLeadMap = isLead
+        ? getBusyLeadTeachersForTarget({ uid: targetUid, sectionName: 'eleMatrix', matrixKey: key })
+        : {};
+
+      openSmartPicker({
+        type: 'teacher',
+        isLeadSlot: isLead,
+        busyLeadMap,
+        title,
+        currentVal: state.eleMatrix[key],
+        onSave: (val) => {
+          state.eleMatrix[key] = val;
+          saveAndRender();
+        }
+      });
+    }
+
+    function openSmartPicker(config) {
+      currentPickerConfig = config;
+      pickerMultiMode = (config.currentVal || '').includes(',');
+      pickerBracketMode = /^\(.*\)$/.test((config.currentVal || '').trim());
+
+      document.getElementById('pickerTitle').textContent = config.title || 'Select Option';
+      const subEl = document.getElementById('pickerSubtitle');
+      if (config.type === 'hallo_teacher') {
+        subEl.textContent = 'Hallo Class Lead — Strictly Koi Only';
+      } else if (config.type === 'teacher') {
+        subEl.textContent = config.isLeadSlot
+          ? 'Lead Slot — Overlapping Lead Teachers Blocked 🚫'
+          : 'Assist Slot — Koi, Thomas, Anna, Mitchelle (Can Overlap)';
+      } else if (config.type === 'director') {
+        subEl.textContent = 'Core Directors Only (Kato, Coulter)';
+      } else if (config.type === 'kindy_activity') {
+        subEl.textContent = 'Kindy Activity List (7 Options)';
+      } else if (config.type === 'ele_activity') {
+        subEl.textContent = 'Elementary Activity List (8 Options)';
+      } else {
+        subEl.textContent = 'Quick Select or Type';
+      }
+
+      const inputEl = document.getElementById('pickerCustomInput');
+      inputEl.value = config.currentVal || '';
+
+      // Show or hide teacher-specific modifier bar
+      const modBar = document.getElementById('pickerTeacherModifiers');
+      modBar.classList.toggle('hidden', config.type !== 'teacher');
+
+      renderPickerOptions();
+      document.getElementById('smartPickerOverlay').classList.remove('hidden');
+    }
+
+    function renderPickerOptions() {
+      if (!currentPickerConfig) return;
+      const type = currentPickerConfig.type;
+      const inputEl = document.getElementById('pickerCustomInput');
+      const currentRaw = inputEl.value || '';
+      const busyLeadMap = currentPickerConfig.busyLeadMap || {};
+      const isLeadSlot = !!currentPickerConfig.isLeadSlot;
+
+      // Update Multi & Bracket toggle button visuals
+      const btnMulti = document.getElementById('pickerBtnMulti');
+      const btnBracket = document.getElementById('pickerBtnBracket');
+      if (btnMulti) {
+        btnMulti.className = `px-2.5 py-1.5 rounded-lg border font-bold transition flex items-center gap-1 ${pickerMultiMode ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300'}`;
+      }
+      if (btnBracket) {
+        btnBracket.className = `px-2.5 py-1.5 rounded-lg border font-bold transition flex items-center gap-1 ${pickerBracketMode ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-700 border-slate-300'}`;
+      }
+
+      const p = state.presets || DEFAULT_PRESETS;
+      let options = [];
+      if (type === 'hallo_teacher') {
+        // STRICT RULE: Hallo Class Lead Teacher is ONLY Koi!
+        options = ['Koi'];
+      } else if (type === 'teacher') {
+        // STRICT RULE 1 & 2: Only Koi, Thomas, Anna, Mitchelle (Never Kato or Coulter)
+        options = getLeadAssistRoster();
+      } else if (type === 'director') {
+        // STRICT RULE 1: Core Directors only (Kato, Coulter)
+        options = getDirectorRoster();
+      } else if (type === 'shift') {
+        options = p.shifts || DEFAULT_PRESETS.shifts;
+      } else if (type === 'prep') {
+        options = p.preps || DEFAULT_PRESETS.preps;
+      } else if (type === 'lunch') {
+        options = p.lunches || DEFAULT_PRESETS.lunches;
+      } else if (type === 'kindy_activity') {
+        // STRICT RULE 4: Kindy Activity List (7 options)
+        options = p.kindyActivities || DEFAULT_PRESETS.kindyActivities;
+      } else if (type === 'ele_activity') {
+        // STRICT RULE 5: Elementary Activity List (8 options)
+        options = p.eleActivities || DEFAULT_PRESETS.eleActivities;
+      } else if (type === 'seasonal_activity' || type === 'activity') {
+        options = p.seasonalActivities || DEFAULT_PRESETS.seasonalActivities;
+      } else if (type === 'time') {
+        options = p.times || DEFAULT_PRESETS.times;
+      } else if (type === 'bus') {
+        const directors = getDirectorRoster();
+        options = [
+          ...directors.map(d => `${d} 17:55 ~ 19:45`),
+          ...directors.map(d => `${d} -> walk to Rainbow club -> sheers`),
+          'No Bus Today'
+        ];
+      } else if (type === 'notice') {
+        options = ['Trial: ', 'Parent Interview: ', 'Birthday: ', 'Early Pick-up: '];
+      } else if (type === 'front') {
+        const teachers = getLeadAssistRoster();
+        options = teachers.map(t => `-> front ${t}\n18 - 19:45`);
+      }
+
+      const container = document.getElementById('pickerOptionsContainer');
+      let html = options.map(opt => {
+        const isSelected = currentRaw.toLowerCase().includes(opt.toLowerCase());
+        const busyConflicts = (isLeadSlot && busyLeadMap[opt.toLowerCase()]) ? busyLeadMap[opt.toLowerCase()] : null;
+
+        if (busyConflicts && busyConflicts.length > 0) {
+          return `
+            <button type="button"
+              onclick="handleBlockedLeadTap('${escapeHtml(opt)}', '${escapeHtml(busyConflicts.join(', '))}')"
+              class="p-2.5 rounded-xl border border-rose-300 bg-rose-50/80 text-left transition flex flex-col justify-between gap-1 opacity-75 cursor-not-allowed">
+              <div class="flex items-center justify-between w-full">
+                <span class="entry-font text-base font-bold text-rose-900 line-through">${escapeHtml(opt)}</span>
+                <span class="text-[10px] font-extrabold text-rose-700 bg-rose-200 px-1.5 py-0.5 rounded">🚫 Busy</span>
+              </div>
+              <div class="text-[10px] font-semibold text-rose-700 leading-tight">
+                Leading ${escapeHtml(busyConflicts.join(', '))}
+              </div>
+            </button>
+          `;
+        }
+
+        return `
+          <button type="button"
+            onclick="handlePickerOptionTap('${escapeHtml(opt)}')"
+            class="p-3 rounded-xl border text-left font-bold transition flex items-center justify-between gap-1 ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-slate-50 hover:bg-blue-50 text-slate-800 border-slate-200'}">
+            <span class="entry-font text-base truncate">${escapeHtml(opt)}</span>
+            ${isSelected ? '<span>✓</span>' : '<span class="text-slate-300 text-xs">+</span>'}
+          </button>
+        `;
+      }).join('');
+
+      if (type === 'hallo_teacher') {
+        html += `
+          <button type="button"
+            onclick="selectQuickSymbol('')"
+            class="p-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold transition flex items-center justify-between">
+            <span>Clear</span>
+            <span>✕</span>
+          </button>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function handleBlockedLeadTap(teacherName, conflictLocations) {
+      showToast(`⚠️ Conflict! ${teacherName} is already Leading ${conflictLocations}!`);
+    }
+
+    function handlePickerOptionTap(optionText) {
+      if (!currentPickerConfig) return;
+      const inputEl = document.getElementById('pickerCustomInput');
+      const busyLeadMap = currentPickerConfig.busyLeadMap || {};
+
+      // Guard Lead overlap even if Bracket mode isn't set
+      if (currentPickerConfig.isLeadSlot && !pickerBracketMode && busyLeadMap[optionText.toLowerCase()]) {
+        handleBlockedLeadTap(optionText, busyLeadMap[optionText.toLowerCase()].join(', '));
+        return;
+      }
+
+      const formatted = (currentPickerConfig.type === 'teacher' && pickerBracketMode)
+        ? `(${optionText})`
+        : optionText;
+
+      if (currentPickerConfig.type === 'teacher' && pickerMultiMode) {
+        // Toggle teacher inside comma-separated list
+        let parts = inputEl.value
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s && s !== '↓' && s !== '/');
+
+        const existingIdx = parts.findIndex(p => p.replace(/[()]/g, '').toLowerCase() === optionText.toLowerCase());
+        if (existingIdx >= 0) {
+          parts.splice(existingIdx, 1);
+        } else {
+          parts.push(formatted);
+        }
+        inputEl.value = parts.join(', ');
+        renderPickerOptions();
+        return;
+      }
+
+      // For Notice or Bus notes, append on new line if non-empty
+      if ((currentPickerConfig.type === 'bus' || currentPickerConfig.type === 'notice') && inputEl.value.trim() !== '') {
+        inputEl.value = inputEl.value.trim() + '\n' + formatted;
+        currentPickerConfig.onSave(inputEl.value);
+        closeSmartPicker();
+        return;
+      }
+
+      // Single tap instant selection!
+      inputEl.value = formatted;
+      currentPickerConfig.onSave(formatted);
+      closeSmartPicker();
+    }
+
+    function selectQuickSymbol(sym) {
+      if (!currentPickerConfig) return;
+      // If selecting '↓' (Same as Above) on a Lead slot, verify the inherited teacher above isn't leading another overlapping class!
+      if (sym === '↓' && currentPickerConfig.isLeadSlot) {
+        const inherited = String(currentPickerConfig.inheritedAbove || '').replace(/\(.*?\)/g, '');
+        const roster = getLeadAssistRoster();
+        const names = extractTeacherNames(inherited, roster);
+        const busyLeadMap = currentPickerConfig.busyLeadMap || {};
+        for (const tName of names) {
+          const conflicts = busyLeadMap[tName.toLowerCase()];
+          if (conflicts && conflicts.length > 0) {
+            showToast(`⚠️ Cannot use ↓! ${tName} is already Leading ${conflicts.join(', ')} at this time!`);
+            return;
+          }
+        }
+      }
+      currentPickerConfig.onSave(sym);
+      closeSmartPicker();
+    }
+
+    function applyPickerCustomInput() {
+      if (!currentPickerConfig) return;
+      const val = document.getElementById('pickerCustomInput').value.trim();
+
+      // Enforce Hallo Class = Koi Only
+      if (currentPickerConfig.type === 'hallo_teacher') {
+        if (val !== '' && val !== '/' && val.toLowerCase() !== 'koi') {
+          showToast('ℹ️ Only Koi can lead Hallo Class!');
+          return;
+        }
+        const normalized = val.toLowerCase() === 'koi' ? 'Koi' : val;
+        currentPickerConfig.onSave(normalized);
+        closeSmartPicker();
+        return;
+      }
+
+      // Enforce Lead Conflict Check on manual text entry
+      if (currentPickerConfig.isLeadSlot && val && val !== '↓' && val !== '/') {
+        const roster = getLeadAssistRoster();
+        const cleaned = val.replace(/\(.*?\)/g, '');
+        const enteredNames = extractTeacherNames(cleaned, roster);
+        const busyLeadMap = currentPickerConfig.busyLeadMap || {};
+        for (const tName of enteredNames) {
+          const conflicts = busyLeadMap[tName.toLowerCase()];
+          if (conflicts && conflicts.length > 0) {
+            showToast(`⚠️ Conflict! ${tName} is already Leading ${conflicts.join(', ')}!`);
+            return;
+          }
+        }
+      }
+
+      currentPickerConfig.onSave(val);
+      closeSmartPicker();
+    }
+
+    function togglePickerMulti() {
+      pickerMultiMode = !pickerMultiMode;
+      renderPickerOptions();
+    }
+
+    function togglePickerBracket() {
+      pickerBracketMode = !pickerBracketMode;
+      renderPickerOptions();
+    }
+
+    function closeSmartPicker(event) {
+      if (event && event.target && event.target.id !== 'smartPickerOverlay') return;
+      document.getElementById('smartPickerOverlay').classList.add('hidden');
+      currentPickerConfig = null;
+    }
+
+    // =========================================================================
+    // 8. EDIT ANY LABEL / TITLE EVERYWHERE
+    // =========================================================================
+    function maybeEditSlotTitle(sectionName, idx) {
+      const slot = state[sectionName][idx];
+      openSmartPicker({
+        type: 'custom_label',
+        title: `Edit Time & Title (${slot.time})`,
+        currentVal: `${slot.time} | ${slot.title || slot.room1Title || ''}`,
+        onSave: (val) => {
+          const parts = val.split('|');
+          if (parts.length >= 2) {
+            slot.time = parts[0].trim();
+            if (slot.splitRoom) slot.room1Title = parts.slice(1).join('|').trim();
+            else slot.title = parts.slice(1).join('|').trim();
+          } else {
+            slot.title = val.trim();
+          }
+          saveAndRender();
+        }
+      });
+    }
+
+    function maybeEditStaffLabel(idx, field, currentLabel) {
+      openSmartPicker({
+        type: 'custom_label',
+        title: `Rename Label "${currentLabel}"`,
+        currentVal: currentLabel,
+        onSave: (val) => {
+          if (val.trim()) {
+            state.staffCards[idx][field] = val.trim();
+            saveAndRender();
+          }
+        }
+      });
+    }
+
+    function maybeEditCleaningArea(idx) {
+      const current = state.cleaning[idx].area;
+      openSmartPicker({
+        type: 'custom_label',
+        title: `Rename Cleaning Area`,
+        currentVal: current,
+        onSave: (val) => {
+          if (val.trim()) {
+            state.cleaning[idx].area = val.trim();
+            saveAndRender();
+          }
+        }
+      });
+    }
+
+    // =========================================================================
+    // 9. TEACHER ROSTER & PRESETS CUSTOMIZER MODAL
+    // =========================================================================
+    function openRosterModal() {
+      const p = state.presets || DEFAULT_PRESETS;
+      document.getElementById('presetDirectorsInput').value = (p.directors || DEFAULT_PRESETS.directors).join(', ');
+      document.getElementById('presetTeachersInput').value = (p.teachers || DEFAULT_PRESETS.teachers).join(', ');
+      document.getElementById('presetShiftsInput').value = (p.shifts || DEFAULT_PRESETS.shifts).join(', ');
+      document.getElementById('presetPrepsInput').value = (p.preps || DEFAULT_PRESETS.preps).join(', ');
+      document.getElementById('presetLunchesInput').value = (p.lunches || DEFAULT_PRESETS.lunches).join(', ');
+      document.getElementById('presetKindyActivitiesInput').value = (p.kindyActivities || DEFAULT_PRESETS.kindyActivities).join(', ');
+      document.getElementById('presetEleActivitiesInput').value = (p.eleActivities || DEFAULT_PRESETS.eleActivities).join(', ');
+      document.getElementById('rosterModal').classList.remove('hidden');
+    }
+
+    function closeRosterModal() {
+      document.getElementById('rosterModal').classList.add('hidden');
+    }
+
+    function saveRosterPresets() {
+      const parseList = (id) => document.getElementById(id).value.split(',').map(s => s.trim()).filter(Boolean);
+      const directors = parseList('presetDirectorsInput');
+      const directorsLower = directors.map(d => d.toLowerCase());
+      // Ensure directors never sneak into the Lead/Assist teachers list
+      const teachers = parseList('presetTeachersInput').filter(t => !directorsLower.includes(t.toLowerCase()));
+      const kindyActs = parseList('presetKindyActivitiesInput');
+      const eleActs = parseList('presetEleActivitiesInput');
+
+      state.presets = {
+        directors: directors.length ? directors : [...DEFAULT_PRESETS.directors],
+        teachers: teachers.length ? teachers : [...DEFAULT_PRESETS.teachers],
+        shifts: parseList('presetShiftsInput'),
+        preps: parseList('presetPrepsInput'),
+        lunches: parseList('presetLunchesInput'),
+        kindyActivities: kindyActs.length ? kindyActs : [...DEFAULT_PRESETS.kindyActivities],
+        eleActivities: eleActs.length ? eleActs : [...DEFAULT_PRESETS.eleActivities],
+        seasonalActivities: Array.from(new Set([...kindyActs, ...eleActs])),
+        times: DEFAULT_PRESETS.times
+      };
+      closeRosterModal();
+      saveAndRender();
+      showToast('👥 Dropdown lists updated!');
+    }
+
+    // =========================================================================
+    // 10. TRUE RANDOM FISHER-YATES SHUFFLE AUTO-FILL & HELPERS
+    // =========================================================================
+    function fisherYatesShuffle(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function syncDateField(field, val) {
+      state[field] = val;
+      saveToLocalStorage(false);
+      ['dateMonth', 'mDateMonth'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && document.activeElement !== el) el.value = state.dateMonth || '';
+      });
+      ['dateDay', 'mDateDay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && document.activeElement !== el) el.value = state.dateDay || '';
+      });
+    }
+
+    function syncMobileTextareas() {
+      if (layoutView === 'phone') renderMobileView();
+    }
+
+    function setDayOfWeek(day) {
+      state.dayOfWeek = day;
+      saveAndRender();
+    }
+
+    function quickSetDownArrow(event, sectionName, idx, field) {
+      event.stopPropagation();
+      if (isLeadRoleField(sectionName, idx, field)) {
+        const inherited = String(getInheritedTeacherAbove(sectionName, idx, field) || '').replace(/\(.*?\)/g, '');
+        const roster = getLeadAssistRoster();
+        const names = extractTeacherNames(inherited, roster);
+        const targetUid = `${sectionName}:${idx}:${field}`;
+        const busyLeadMap = getBusyLeadTeachersForTarget({ uid: targetUid, sectionName, idx, field });
+        for (const tName of names) {
+          const conflicts = busyLeadMap[tName.toLowerCase()];
+          if (conflicts && conflicts.length > 0) {
+            showToast(`⚠️ Conflict! Cannot set ↓ because ${tName} is Leading ${conflicts.join(', ')}!`);
+            return;
+          }
+        }
+      }
+      state[sectionName][idx][field] = '↓';
+      saveAndRender();
+    }
+
+    function toggleHighlightTeacher(name) {
+      highlightedTeacher = (highlightedTeacher === name) ? null : name;
+      renderAll();
+    }
+
+    function isCellHighlighted(cellValue) {
+      if (!highlightedTeacher || !cellValue) return false;
+      return String(cellValue).toLowerCase().includes(highlightedTeacher.toLowerCase());
+    }
+
+    function resetToBlankConfirm() {
+      const currentPresets = state.presets || JSON.parse(JSON.stringify(DEFAULT_PRESETS));
+      state = getBlankTemplate();
+      state.presets = currentPresets;
+      saveAndRender();
+      showToast('🗑️ All fields cleared to a fresh Blank Schedule!');
+    }
+
+    function loadAug27Sample() {
+      const currentPresets = state.presets || JSON.parse(JSON.stringify(DEFAULT_PRESETS));
+      state = getAug27SampleTemplate();
+      state.presets = currentPresets;
+      saveAndRender();
+      showToast('📋 Loaded 8/27 (Thu) Sample Schedule!');
+    }
+
+    function toggleSeasonalColumn() {
+      state.showSeasonal = !state.showSeasonal;
+      saveAndRender();
+    }
+
+    function toggleFontStyle() {
+      state.handwrittenMode = !state.handwrittenMode;
+      saveAndRender();
+    }
+
+    // STRICT RULE 1, 2, 3, 4, 5: True Random Fisher-Yates Shuffle Auto-Fill
+    function smartAutoFillEmpty() {
+      // Strictly ONLY Koi, Thomas, Anna, Mitchelle (NEVER Kato or Coulter)
+      const leadAssistPool = getLeadAssistRoster();
+      if (leadAssistPool.length < 2) {
+        showToast('⚠️ Need at least 2 Lead/Assist teachers in roster!');
+        return;
+      }
+
+      const directors = getDirectorRoster();
+      const p = state.presets || DEFAULT_PRESETS;
+      const kindyActPool = fisherYatesShuffle(p.kindyActivities || DEFAULT_PRESETS.kindyActivities);
+      const eleActPool = fisherYatesShuffle(p.eleActivities || DEFAULT_PRESETS.eleActivities);
+
+      // 1. Fill Staff Shift Cards (Directors get Kato/Coulter; Teacher cards get shuffled Koi, Thomas, Anna, Mitchelle)
+      const shuffledStaffTeachers = fisherYatesShuffle(leadAssistPool);
+      const teacherShifts = ['9 ~ 18:30', '11 - 20', '11 - 20', '11 - 20'];
+      const teacherPreps = ['while Assist', '11:10 ~ 12', '13:30 - 14', 'while Assist'];
+      const teacherLunches = ['11:10 ~ 12:10', '12 - 13', '12:10 - 13:10', '12 - 13'];
+
+      let dirIdx = 0;
+      let tIdx = 0;
+      state.staffCards.forEach((card) => {
+        if (isDirectorStaffCard(card)) {
+          card.name = directors[dirIdx % directors.length] || '';
+          card.shift = dirIdx === 0 ? '16 - 20' : '~ 18';
+          card.prep = dirIdx === 0 ? '' : 'おまかせ';
+          card.extra = '';
+          dirIdx++;
+        } else {
+          if (tIdx < shuffledStaffTeachers.length) {
+            card.name = shuffledStaffTeachers[tIdx];
+            card.shift = teacherShifts[tIdx % teacherShifts.length];
+            card.prep = teacherPreps[tIdx % teacherPreps.length];
+            card.extra = teacherLunches[tIdx % teacherLunches.length];
+            tIdx++;
+          } else {
+            card.name = '';
+            card.shift = '';
+            card.prep = '';
+            card.extra = '';
+          }
+        }
+      });
+
+      // 2. Shuffle Seasonal Slots (if Seasonal column is active)
+      if (state.showSeasonal) {
+        let lastSeaLead = '';
+        state.seasonalSlots.forEach((slot, idx) => {
+          const isContinuation = [1, 2, 3, 4, 6, 8].includes(idx);
+          if (isContinuation && idx > 0) {
+            slot.lead = '↓';
+            slot.assist = '↓';
+          } else {
+            const avail = fisherYatesShuffle(leadAssistPool);
+            const lead = avail.find(t => t !== lastSeaLead) || avail[0];
+            const assist = avail.find(t => t !== lead) || avail[1];
+            slot.lead = lead;
+            slot.assist = assist;
+            lastSeaLead = lead;
+          }
+          if (typeof slot.customActivity !== 'undefined') {
+            slot.customActivity = fisherYatesShuffle([...kindyActPool, ...eleActPool])[0];
+          }
+        });
+      }
+
+      // 3. Shuffle KINDY Slots & Kindy Activities (Strictly from the 7 Kindy Activities)
+      const kindyLeadChangeIndices = new Set([0, 4, 6, 9, 10, 13, 15]);
+      let currentKindyLead = '';
+      let currentKindyAssist = '';
+      let kActCursor = 0;
+
+      // Pre-select the 3 distinct teachers for Elementary 17:00 Separation (Beginner, Intermediate, Upper Int.)
+      // AND reserve the 4th distinct teacher for Kindy 17:00 ~ 18:00 so 17:00-18:00 has ZERO Lead overlaps!
+      const fourShuffled1700 = fisherYatesShuffle(leadAssistPool);
+      const reservedKindy1700Lead = fourShuffled1700[0]; // Leads Kindy during 17:00 - 18:00
+      const matrixBegLead = fourShuffled1700[1] || fourShuffled1700[0];
+      const matrixIntLead = fourShuffled1700[2] || fourShuffled1700[0];
+      const matrixUppLead = fourShuffled1700[3] || fourShuffled1700[0];
+
+      state.kindySlots.forEach((slot, idx) => {
+        const kRange = getSlotTimeRange('kindySlots', slot);
+        const overlaps1700Matrix = rangesOverlap(kRange, [1020, 1080]); // 17:00 - 18:00 window
+
+        if (overlaps1700Matrix) {
+          // Between 17:00 and 18:00, the other 3 teachers are Leading Elementary Beginner, Intermediate, and Upper Int.
+          // So Kindy Lead in 17:00-18:00 MUST be reservedKindy1700Lead (or ↓ continuation of them)
+          if (idx === 9) { // 17:00 Parents Presentation
+            const others = fisherYatesShuffle(leadAssistPool.filter(t => t !== reservedKindy1700Lead));
+            slot.lead = reservedKindy1700Lead;
+            slot.assist = others[0] || '';
+            if (slot.threeCol) slot.extra = others[1] || '';
+            currentKindyLead = reservedKindy1700Lead;
+          } else {
+            slot.lead = '↓';
+            slot.assist = '↓';
+            if (slot.threeCol) slot.extra = '↓';
+          }
+        } else if (idx === 0 || kindyLeadChangeIndices.has(idx)) {
+          const shuffled = fisherYatesShuffle(leadAssistPool);
+          const lead = shuffled.find(t => t !== currentKindyLead) || shuffled[0];
+          const assist = shuffled.find(t => t !== lead) || shuffled[1];
+          const extra = shuffled.find(t => t !== lead && t !== assist) || shuffled[2] || '';
+          slot.lead = lead;
+          slot.assist = assist;
+          if (slot.threeCol) slot.extra = extra;
+          currentKindyLead = lead;
+          currentKindyAssist = assist;
+        } else {
+          slot.lead = '↓';
+          slot.assist = '↓';
+          if (slot.threeCol) slot.extra = '↓';
+        }
+
+        if (typeof slot.customActivity !== 'undefined') {
+          slot.customActivity = kindyActPool[kActCursor % kindyActPool.length];
+          kActCursor++;
+        }
+      });
+
+      // Helper to find all Kindy Lead teachers active during any [startMin, endMin] window
+      const getKindyLeadsInRange = (range) => {
+        const resolvedK = resolveColumnArrows(state.kindySlots);
+        const busy = new Set();
+        resolvedK.forEach(ks => {
+          const kr = getSlotTimeRange('kindySlots', ks);
+          if (rangesOverlap(range, kr) && ks.resolvedLead) {
+            busy.add(ks.resolvedLead);
+          }
+        });
+        return busy;
+      };
+
+      // 4. Shuffle Elementary Upper Slots (Guaranteeing 0 Lead overlaps across entire block duration AND split rooms!)
+      const eleBlocks = [
+        { startIdx: 0, endIdx: 0, range: [830, 870] },   // 13:50 - 14:30
+        { startIdx: 1, endIdx: 2, range: [870, 900] },   // 14:30 - 15:00
+        { startIdx: 3, endIdx: 4, range: [900, 930] },   // 15:00 - 15:30
+        { startIdx: 5, endIdx: 6, range: [930, 975] },   // 15:30 - 16:15
+        { startIdx: 7, endIdx: 9, range: [975, 1020] }   // 16:15 - 17:00 (Split Room AB & Room C + Clean Up + 2nd Snack)
+      ];
+
+      let currentEleLead = '';
+      let eActCursor = 0;
+
+      eleBlocks.forEach(block => {
+        const busyKindyLeads = getKindyLeadsInRange(block.range);
+        const availableLeads = fisherYatesShuffle(
+          leadAssistPool.filter(t => !busyKindyLeads.has(t))
+        );
+
+        const firstSlot = state.eleUpperSlots[block.startIdx];
+        if (firstSlot.splitRoom || firstSlot.id === 'ele_1615') {
+          // 16:15 Split Room needs TWO distinct Leads (Room AB Lead + Room C Lead), neither overlapping with Kindy 16:15-17:00!
+          const roomABLead = availableLeads.find(t => t !== currentEleLead) || availableLeads[0] || leadAssistPool[0];
+          const roomCLead = availableLeads.find(t => t !== roomABLead) || leadAssistPool.find(t => t !== roomABLead) || leadAssistPool[1];
+          firstSlot.lead = roomABLead;
+          firstSlot.assist = roomCLead;
+          currentEleLead = roomABLead;
+
+          for (let i = block.startIdx + 1; i <= block.endIdx; i++) {
+            const s = state.eleUpperSlots[i];
+            s.lead = '↓';
+            s.assist = '↓';
+            if (s.threeCol) s.extra = '↓';
+          }
+        } else {
+          const lead = availableLeads.find(t => t !== currentEleLead) || availableLeads[0] || leadAssistPool[0];
+          // Assist can be any other teacher
+          const assistCandidates = fisherYatesShuffle(leadAssistPool.filter(t => t !== lead));
+          const assist = assistCandidates[0] || lead;
+          const extra = assistCandidates[1] || '/';
+
+          firstSlot.lead = lead;
+          firstSlot.assist = assist;
+          if (firstSlot.threeCol) firstSlot.extra = block.startIdx === 5 ? '/' : extra;
+          currentEleLead = lead;
+
+          for (let i = block.startIdx + 1; i <= block.endIdx; i++) {
+            const s = state.eleUpperSlots[i];
+            s.lead = '↓';
+            s.assist = '↓';
+            if (s.threeCol) s.extra = '↓';
+          }
+        }
+      });
+
+      // Populate Elementary Activities strictly from the 8 Elementary Activities
+      state.eleUpperSlots.forEach(slot => {
+        if (slot.splitRoom) {
+          const twoActs = fisherYatesShuffle(eleActPool);
+          slot.room1Activity = twoActs[0];
+          slot.room2Activity = twoActs[1] || twoActs[0];
+        } else if (typeof slot.customActivity !== 'undefined') {
+          slot.customActivity = eleActPool[eActCursor % eleActPool.length];
+          eActCursor++;
+        }
+      });
+
+      // 5. Set 17:00 Class Separation Matrix (3 distinct Leads that do NOT overlap with Kindy 17:00-18:00 Lead)
+      const assistPool1700 = fisherYatesShuffle(leadAssistPool);
+      state.eleMatrix = {
+        leadBeg: matrixBegLead,
+        leadInt: matrixIntLead,
+        leadUpp: matrixUppLead,
+        assistBeg: assistPool1700.find(t => t !== matrixBegLead) || '',
+        assistInt: '',
+        assistUpp: ''
+      };
+
+      // 6. Shuffle 18:00 ~ 18:45 Elementary Lower Slots (Avoiding Kindy 18:00-18:35 Lead!)
+      const busyKindy1800 = getKindyLeadsInRange([1080, 1125]);
+      const availLowerLeads = fisherYatesShuffle(leadAssistPool.filter(t => !busyKindy1800.has(t)));
+      const lowerLead = availLowerLeads[0] || leadAssistPool[0];
+      const lowerAssists = fisherYatesShuffle(leadAssistPool.filter(t => t !== lowerLead));
+
+      state.eleLowerSlots.forEach((slot, idx) => {
+        if (idx === 0) {
+          slot.lead = lowerLead;
+          slot.assist = lowerAssists[0] || '';
+          slot.extra = lowerAssists[1] || lowerAssists[0] || '';
+        } else {
+          slot.lead = '↓';
+          slot.assist = '↓';
+          slot.extra = '↓';
+        }
+      });
+
+      // 7. Prime Class & Hallo Class (STRICT RULE: Hallo Class Lead Teacher is ALWAYS Koi!)
+      const primeCandidates = fisherYatesShuffle(leadAssistPool);
+      state.primeLead = primeCandidates[0] || '';
+      state.primeTime = '17:00';
+      state.halloLead = 'Koi';
+      state.halloTime1 = '16:00';
+      state.halloTime2 = '/';
+
+      // 8. Shuffle Evening Cleaning Duties evenly across the 4 Lead/Assist teachers
+      const cleanPool = [
+        ...fisherYatesShuffle(leadAssistPool),
+        ...fisherYatesShuffle(leadAssistPool)
+      ];
+      state.cleaning.forEach((item, idx) => {
+        item.teacher = cleanPool[idx % cleanPool.length];
+      });
+
+      saveAndRender();
+      showToast('🎲 Shuffled with 0 Lead Overlaps & Hallo Lead = Koi!');
+    }
+        kindyLeadByTime[slot.time] = currentKindyLead;
+
+        if (typeof slot.customActivity !== 'undefined') {
+          slot.customActivity = kindyActPool[kActCursor % kindyActPool.length];
+          kActCursor++;
+        }
+      });
+
+      // 4. Shuffle Elementary Upper Slots (Avoiding any Kindy Lead double-booking at the same timestamp!)
+      const eleLeadChangeIndices = new Set([0, 1, 3, 5, 7]);
+      let currentEleLead = '';
+      let eActCursor = 0;
+
+      state.eleUpperSlots.forEach((slot, idx) => {
+        const busyKindyLead = kindyLeadByTime[slot.time] || '';
+        if (idx === 0 || eleLeadChangeIndices.has(idx)) {
+          // Exclude the teacher who is leading Kindy at this exact time
+          const availableForLead = fisherYatesShuffle(
+            leadAssistPool.filter(t => t !== busyKindyLead)
+          );
+          const lead = availableForLead.find(t => t !== currentEleLead) || availableForLead[0] || leadAssistPool[0];
+          const remainingForAssist = fisherYatesShuffle(
+            leadAssistPool.filter(t => t !== lead && t !== busyKindyLead)
+          );
+          const assist = remainingForAssist[0] || leadAssistPool.find(t => t !== lead);
+          const extra = remainingForAssist[1] || '/';
+
+          slot.lead = lead;
+          slot.assist = assist;
+          if (slot.threeCol) slot.extra = idx === 5 ? '/' : extra;
+          currentEleLead = lead;
+        } else {
+          slot.lead = '↓';
+          slot.assist = '↓';
+          if (slot.threeCol) slot.extra = '↓';
+        }
+
+        // Fill Elementary Activities strictly from the 8 Elementary Activities
+        if (slot.splitRoom) {
+          const twoActs = fisherYatesShuffle(eleActPool);
+          slot.room1Activity = twoActs[0];
+          slot.room2Activity = twoActs[1] || twoActs[0];
+        } else if (typeof slot.customActivity !== 'undefined') {
+          slot.customActivity = eleActPool[eActCursor % eleActPool.length];
+          eActCursor++;
+        }
+      });
+
+      // 5. Shuffle 17:00 Class Separation Matrix (Beginner / Intermediate / Upper Int.)
+      const matrixShuffled = fisherYatesShuffle(leadAssistPool);
+      state.eleMatrix = {
+        leadBeg: matrixShuffled[0] || '',
+        leadInt: matrixShuffled[1] || '',
+        leadUpp: matrixShuffled[2] || '',
+        assistBeg: matrixShuffled[3] || '',
+        assistInt: '',
+        assistUpp: ''
+      };
+
+      // 6. Shuffle 18:00 ~ 18:45 Elementary Lower Slots
+      const lowerShuffled = fisherYatesShuffle(leadAssistPool);
+      state.eleLowerSlots.forEach((slot, idx) => {
+        if (idx === 0) {
+          slot.lead = lowerShuffled[0] || '';
+          slot.assist = lowerShuffled[1] || '';
+          slot.extra = lowerShuffled[2] || lowerShuffled[1] || '';
+        } else {
+          slot.lead = '↓';
+          slot.assist = '↓';
+          slot.extra = '↓';
+        }
+      });
+
+      // 7. Shuffle Prime Class & Hallo Class (Only from Koi, Thomas, Anna, Mitchelle)
+      const sideShuffled = fisherYatesShuffle(leadAssistPool);
+      state.primeLead = sideShuffled[0] || '';
+      state.primeTime = '17:00';
+      state.halloLead = sideShuffled[1] || '';
+      state.halloTime1 = '16:00';
+      state.halloTime2 = '/';
+
+      // 8. Shuffle Evening Cleaning Duties evenly across the 4 Lead/Assist teachers
+      const cleanPool = [
+        ...fisherYatesShuffle(leadAssistPool),
+        ...fisherYatesShuffle(leadAssistPool)
+      ];
+      state.cleaning.forEach((item, idx) => {
+        item.teacher = cleanPool[idx % cleanPool.length];
+      });
+
+      saveAndRender();
+      showToast('🎲 Fresh Random Schedule Shuffled! (Koi, Thomas, Anna, Mitchelle)');
+    }
+
+    function autoRotateCleaning() {
+      const pool = getLeadAssistRoster();
+      const shuffled = [
+        ...fisherYatesShuffle(pool),
+        ...fisherYatesShuffle(pool)
+      ];
+      state.cleaning.forEach((item, idx) => {
+        item.teacher = shuffled[idx % shuffled.length];
+      });
+      saveAndRender();
+      showToast('🧹 Evening cleaning duties shuffled (Koi, Thomas, Anna, Mitchelle)!');
+    }
+
+    // Conflict & Workload Engine
+    function resolveColumnArrows(slots) {
+      let lastLead = '', lastAssist = '', lastExtra = '';
+      return slots.map(s => {
+        const resolvedLead = (s.lead === '↓') ? lastLead : (s.lead || '');
+        const resolvedAssist = (s.assist === '↓') ? lastAssist : (s.assist || '');
+        const resolvedExtra = (s.extra === '↓') ? lastExtra : (s.extra || '');
+        if (s.lead && s.lead !== '↓') lastLead = s.lead;
+        if (s.assist && s.assist !== '↓') lastAssist = s.assist;
+        if (s.extra && s.extra !== '↓') lastExtra = s.extra;
+        return { ...s, resolvedLead, resolvedAssist, resolvedExtra };
+      });
+    }
+
+    function extractTeacherNames(rawStr, rosterNames) {
+      if (!rawStr || rawStr === '↓' || rawStr === '/') return [];
+      const lower = rawStr.toLowerCase();
+      return rosterNames.filter(name => lower.includes(name.toLowerCase()));
+    }
+
+    function countTeacherAssignments() {
+      const counts = {};
+      const roster = getFullTeacherRoster();
+      roster.forEach(n => counts[n.toLowerCase()] = 0);
+
+      const addFromStr = (str) => {
+        extractTeacherNames(str, roster).forEach(name => {
+          counts[name.toLowerCase()] = (counts[name.toLowerCase()] || 0) + 1;
+        });
+      };
+
+      if (state.showSeasonal) {
+        resolveColumnArrows(state.seasonalSlots).forEach(s => { addFromStr(s.resolvedLead); addFromStr(s.resolvedAssist); });
+      }
+      resolveColumnArrows(state.kindySlots).forEach(s => { addFromStr(s.resolvedLead); addFromStr(s.resolvedAssist); addFromStr(s.resolvedExtra); });
+      resolveColumnArrows(state.eleUpperSlots).forEach(s => { addFromStr(s.resolvedLead); addFromStr(s.resolvedAssist); addFromStr(s.resolvedExtra); });
+      resolveColumnArrows(state.eleLowerSlots).forEach(s => { addFromStr(s.resolvedLead); addFromStr(s.resolvedAssist); addFromStr(s.resolvedExtra); });
+
+      Object.values(state.eleMatrix).forEach(addFromStr);
+      state.cleaning.forEach(c => addFromStr(c.teacher));
+      addFromStr(state.primeLead);
+      addFromStr(state.halloLead);
+      return counts;
+    }
+
+    function runConflictAndWorkloadCheck() {
+      document.querySelectorAll('.conflict-cell').forEach(el => el.classList.remove('conflict-cell'));
+      const roster = getLeadAssistRoster();
+      const allLeadEntries = getAllActiveLeadEntries(state);
+      const conflicts = [];
+
+      for (let i = 0; i < allLeadEntries.length; i++) {
+        for (let j = i + 1; j < allLeadEntries.length; j++) {
+          const a = allLeadEntries[i];
+          const b = allLeadEntries[j];
+          if (!rangesOverlap(a.range, b.range)) continue;
+
+          const aLeads = extractTeacherNames(String(a.resolvedVal || '').replace(/\(.*?\)/g, ''), roster);
+          const bLeads = extractTeacherNames(String(b.resolvedVal || '').replace(/\(.*?\)/g, ''), roster);
+
+          aLeads.forEach(tName => {
+            if (bLeads.includes(tName)) {
+              conflicts.push({
+                time: `${a.label} & ${b.label}`,
+                teacher: tName,
+                message: `${tName} is assigned as Lead in BOTH "${a.detail}" and "${b.detail}" during overlapping times.`,
+                cells: [a.domId, b.domId]
+              });
+            }
+          });
+        }
+      }
+
+      // Also verify Hallo Class Lead is strictly Koi if filled
+      if (state.halloLead && state.halloLead !== '/' && state.halloLead.toLowerCase() !== 'koi') {
+        conflicts.push({
+          time: 'Hallo Class',
+          teacher: state.halloLead,
+          message: `Only Koi can lead Hallo Class (currently set to ${state.halloLead}).`,
+          cells: ['halloLeadCell']
+        });
+      }
+
+      conflicts.forEach(c => {
+        c.cells.forEach(cid => {
+          const dom = document.getElementById(cid);
+          if (dom) dom.classList.add('conflict-cell');
+        });
+      });
+
+      const countEl = document.getElementById('conflictCount');
+      countEl.textContent = conflicts.length === 0 ? '0 Lead Conflicts' : `${conflicts.length} Conflict${conflicts.length > 1 ? 's' : ''}`;
+      countEl.className = conflicts.length === 0 ? 'text-emerald-300' : 'text-rose-400';
+      document.getElementById('conflictIcon').textContent = conflicts.length > 0 ? '⚠️' : '✅';
+
+      const listContainer = document.getElementById('conflictListContainer');
+      if (conflicts.length === 0) {
+        listContainer.innerHTML = `
+          <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-3">
+            <span class="text-2xl">🎉</span>
+            <div>
+              <div class="font-bold">No Double-Bookings!</div>
+              <div class="text-emerald-700 mt-0.5">Every teacher assignment is conflict-free across columns.</div>
+            </div>
+          </div>
+        `;
+      } else {
+        listContainer.innerHTML = conflicts.map(c => `
+          <div class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 flex items-start gap-2.5">
+            <span class="text-base">⚠️</span>
+            <div>
+              <div class="font-bold">${escapeHtml(c.time)} — ${escapeHtml(c.teacher)}</div>
+              <div class="text-rose-700 mt-0.5">${escapeHtml(c.message)}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function toggleConflictModal() {
+      document.getElementById('conflictModal').classList.toggle('hidden');
+    }
+
+    function saveToLocalStorage(showNotification) {
+      try {
+        localStorage.setItem('dreamTeamScheduleState_v3', JSON.stringify(state));
+        if (showNotification) showToast('💾 Schedule saved!');
+      } catch (e) {
+        console.warn('Save error:', e);
+      }
+    }
+
+    function showToast(msg) {
+      const banner = document.getElementById('toastBanner');
+      document.getElementById('toastText').textContent = msg;
+      banner.classList.remove('hidden');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => banner.classList.add('hidden'), 2600);
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    window.onload = initApp;
+  </script>
+</body>
+</html>
